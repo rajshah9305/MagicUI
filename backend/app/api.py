@@ -1,220 +1,494 @@
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
-from sqlalchemy.orm import Session
-from typing import List
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
+import json
+import os
 import uuid
+import asyncio
+from datetime import datetime
 import logging
-from . import services, crud
-from .models import (
-    DesignRequest, 
-    ChatRequest, 
-    PromptAnalysisRequest, 
-    ChatMessageCreate,
-    UIGenerationResponse,
-    ChatResponse,
-    DesignIntentResponse,
-    AgentStatusResponse,
-    MessageType
-)
-from .database import get_db
-from .websocket_manager import websocket_manager
 
+from .gemini_client import gemini_client
+from .models import *
+from .services import UIGenerationService, ChatService, PreviewService
+from .websocket_manager import WebSocketManager
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+# Initialize FastAPI app
+app = FastAPI(
+    title="Magic UI Elite API",
+    description="Elite AI-powered UI generation platform with real-time neural network visualization",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
-# Add startup event to initialize services
-@router.on_event("startup")
-async def startup_event():
-    logger.info("API router initialized with enhanced services")
-    
-@router.on_event("shutdown")
-async def shutdown_event():
-    logger.info("API router shutting down")
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "https://magic-ui-elite.vercel.app"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@router.post("/generate-ui", response_model=UIGenerationResponse)
-async def generate_ui(request: DesignRequest, db: Session = Depends(get_db)):
-    """Generate UI using advanced CrewAI orchestration with Cerebras AI"""
+# Initialize services
+ui_service = UIGenerationService()
+chat_service = ChatService()
+preview_service = PreviewService()
+ws_manager = WebSocketManager()
+
+# Pydantic models
+class GenerationRequest(BaseModel):
+    brief: str
+    mood: Optional[str] = "futuristic"
+    style_preferences: Optional[List[str]] = []
+    target_platforms: Optional[List[str]] = ["web"]
+    accessibility_level: Optional[str] = "AA"
+
+class ChatMessage(BaseModel):
+    role: str
+    text: str
+    agent: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = {}
+
+class PatchRequest(BaseModel):
+    variant_id: str
+    target: str  # "UI_SCHEMA", "STYLE_SPEC", "code"
+    patches: List[Dict[str, Any]]
+
+class ExportRequest(BaseModel):
+    variant_ids: List[str]
+    format: str = "zip"  # "zip", "vercel", "docker"
+    include_assets: bool = True
+    optimize: bool = True
+
+# Health check
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0.0"
+    }
+
+# Generation endpoints
+@app.post("/api/generate")
+async def generate_ui(request: GenerationRequest, background_tasks: BackgroundTasks):
+    """Generate UI variants from user brief"""
     try:
-        # Always use the advanced service with Cerebras AI
-        result = await services.generate_ui_advanced(request)
+        logger.info(f"Generating UI for brief: {request.brief[:50]}...")
         
-        # TODO: Save to database
-        return result
+        # Generate UI schema
+        ui_schema = await gemini_client.generate_ui_schema(request.brief, request.mood)
+        
+        # Generate style variants
+        style_variants = []
+        style_names = ["retro-futurism-mesh", "glass-aurora", "brutalist-editorial", "minimal-monochrome"]
+        
+        for i, style_name in enumerate(style_names):
+            style_spec = await gemini_client.generate_style_spec(ui_schema, style_name)
+            style_variants.append(style_spec)
+        
+        # Generate code for each variant
+        variants = []
+        for i, (style_spec, style_name) in enumerate(zip(style_variants, style_names)):
+            variant_id = f"v{i+1}"
+            
+            # Generate code
+            code_files = await gemini_client.generate_code(ui_schema, style_spec, variant_id)
+            
+            # Create preview
+            preview_path = await preview_service.create_preview(variant_id, code_files, style_spec)
+            
+            # Analyze quality
+            quality_scores = await gemini_client.analyze_design_quality(ui_schema, style_spec)
+            
+            variant = {
+                "id": variant_id,
+                "name": style_name.replace("-", " ").title(),
+                "style": style_name,
+                "style_spec": style_spec,
+                "build": f"./out/{variant_id}",
+                "preview": preview_path,
+                "novelty": style_spec.get("novelty_score", 0.8),
+                "metadata": {
+                    "width": 1200,
+                    "height": 800,
+                    "responsive": True,
+                    "quality_scores": quality_scores
+                }
+            }
+            variants.append(variant)
+        
+        # Create manifest
+        manifest = {
+            "brief": request.brief,
+            "ui_schema_path": "UI_SCHEMA.json",
+            "variants": variants,
+            "preview_manifest": "preview-manifest.json",
+            "generated_at": datetime.now().isoformat(),
+            "version": "1.0.0"
+        }
+        
+        # Save manifest
+        os.makedirs("generated", exist_ok=True)
+        with open("generated/preview-manifest.json", "w") as f:
+            json.dump(manifest, f, indent=2)
+        
+        # Broadcast update via WebSocket
+        await ws_manager.broadcast({
+            "type": "generation_complete",
+            "data": manifest
+        })
+        
+        return {
+            "success": True,
+            "manifest": manifest,
+            "processing_time": 0  # Will be calculated in real implementation
+        }
         
     except Exception as e:
-        logger.error(f"UI generation failed: {str(e)}")
-        
-        # Fallback to mock service in case of error
-        try:
-            result_dict = services.generate_ui_mock(request)
-            result = UIGenerationResponse(**result_dict)
-            return result
-        except Exception as fallback_error:
-            logger.error(f"Fallback also failed: {str(fallback_error)}")
-            raise HTTPException(status_code=500, detail=f"UI generation failed: {str(e)}")
+        logger.error(f"Error generating UI: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/generate-ui/mock")
-async def generate_ui_mock_endpoint(request: DesignRequest):
-    """Generate UI using mock service (for testing)"""
-    return services.generate_ui_mock(request)
-
-@router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest, db: Session = Depends(get_db)):
-    """Advanced chat with NLP analysis and context awareness"""
+@app.get("/api/preview/manifest")
+async def get_preview_manifest():
+    """Get current preview manifest"""
     try:
-        # Save user message
-        user_message = ChatMessageCreate(
-            type=MessageType.USER.value, 
-            content=request.message
-        )
-        crud.create_chat_message(db, message=user_message)
-        
-        # Get assistant response using advanced service
-        if hasattr(services, 'chat_advanced'):
-            response = await services.chat_advanced(request)
+        if os.path.exists("generated/preview-manifest.json"):
+            with open("generated/preview-manifest.json", "r") as f:
+                return json.load(f)
         else:
-            response_dict = services.chat_mock(request)
-            response = ChatResponse(**response_dict)
+            # Return empty manifest if none exists
+            return {
+                "brief": "",
+                "ui_schema_path": "",
+                "variants": [],
+                "preview_manifest": "",
+                "generated_at": datetime.now().isoformat(),
+                "version": "1.0.0"
+            }
+    except Exception as e:
+        logger.error(f"Error getting preview manifest: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Chat endpoints
+@app.post("/api/chat")
+async def send_chat_message(message: ChatMessage):
+    """Send chat message and get AI response"""
+    try:
+        # Generate AI response
+        context = {
+            "current_manifest": await get_preview_manifest(),
+            "selected_agent": message.agent
+        }
         
-        # Save assistant message
-        assistant_message = ChatMessageCreate(
-            type=MessageType.ASSISTANT.value,
-            content=response.content
-        )
-        crud.create_chat_message(db, message=assistant_message)
+        ai_response = await gemini_client.generate_chat_response(message.text, context)
         
-        return response
+        # Create response message
+        response_message = {
+            "id": str(uuid.uuid4()),
+            "role": "agent",
+            "agent": message.agent or "AI Assistant",
+            "text": ai_response,
+            "timestamp": datetime.now(),
+            "metadata": {}
+        }
+        
+        # Save to chat history
+        await chat_service.save_message(message.dict())
+        await chat_service.save_message(response_message)
+        
+        # Broadcast via WebSocket
+        await ws_manager.broadcast({
+            "type": "chat_message",
+            "data": response_message
+        })
+        
+        return response_message
         
     except Exception as e:
-        logger.error(f"Chat failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+        logger.error(f"Error processing chat message: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/chat/mock")
-async def chat_mock_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
-    """Chat using mock service (for testing)"""
-    # Save user message
-    user_message = ChatMessageCreate(type="user", content=request.message)
-    crud.create_chat_message(db, message=user_message)
-    
-    # Get mock response
-    response = services.chat_mock(request)
-    
-    # Save assistant message
-    assistant_message = ChatMessageCreate(type="assistant", content=response['content'])
-    crud.create_chat_message(db, message=assistant_message)
-    
-    return response
-
-@router.post("/analyze-prompt", response_model=DesignIntentResponse)
-async def analyze_prompt(request: PromptAnalysisRequest):
-    """Analyze prompt using advanced NLP engine"""
+@app.get("/api/chat/history")
+async def get_chat_history(limit: int = 50):
+    """Get chat history"""
     try:
-        if hasattr(services, 'analyze_prompt_advanced'):
-            return await services.analyze_prompt_advanced(request)
-        else:
-            result = services.analyze_prompt_mock(request)
-            # Convert mock result to proper response model
-            return DesignIntentResponse(
-                page_type=result.get('pageType', 'landing'),
-                style_preferences=[result.get('style', 'modern')],
-                components=['header', 'content', 'footer'],
-                layout='single_column',
-                complexity=0.5,
-                business_domain='general',
-                target_audience='general',
-                brand_personality=['friendly'],
-                functional_requirements=result.get('requirements', []),
-                technical_requirements=['react_nextjs'],
-                confidence=0.7
+        return await chat_service.get_history(limit)
+    except Exception as e:
+        logger.error(f"Error getting chat history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Patch endpoints
+@app.post("/api/patch")
+async def apply_patch(request: PatchRequest):
+    """Apply patches to UI schema, style spec, or code"""
+    try:
+        # Get current manifest
+        manifest = await get_preview_manifest()
+        
+        # Find the variant
+        variant = next((v for v in manifest["variants"] if v["id"] == request.variant_id), None)
+        if not variant:
+            raise HTTPException(status_code=404, detail="Variant not found")
+        
+        # Apply patches based on target
+        if request.target == "UI_SCHEMA":
+            # Apply patches to UI schema
+            updated_schema = apply_json_patches(manifest.get("ui_schema", {}), request.patches)
+            manifest["ui_schema"] = updated_schema
+        elif request.target == "STYLE_SPEC":
+            # Apply patches to style spec
+            updated_style_spec = apply_json_patches(variant["style_spec"], request.patches)
+            variant["style_spec"] = updated_style_spec
+        elif request.target == "code":
+            # Regenerate code with updated schema/style
+            code_files = await gemini_client.generate_code(
+                manifest.get("ui_schema", {}),
+                variant["style_spec"],
+                request.variant_id
             )
+            # Update preview
+            preview_path = await preview_service.create_preview(
+                request.variant_id, 
+                code_files, 
+                variant["style_spec"]
+            )
+            variant["preview"] = preview_path
+        
+        # Save updated manifest
+        with open("generated/preview-manifest.json", "w") as f:
+            json.dump(manifest, f, indent=2)
+        
+        # Broadcast update
+        await ws_manager.broadcast({
+            "type": "patch_applied",
+            "data": {"variant_id": request.variant_id, "target": request.target}
+        })
+        
+        return {
+            "success": True,
+            "updated_manifest": manifest
+        }
+        
     except Exception as e:
-        logger.error(f"Prompt analysis failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Prompt analysis failed: {str(e)}")
+        logger.error(f"Error applying patch: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/analyze-prompt/mock")
-async def analyze_prompt_mock_endpoint(request: PromptAnalysisRequest):
-    """Analyze prompt using mock service (for testing)"""
-    return services.analyze_prompt_mock(request)
-
-@router.get("/chat/history")
-async def get_chat_history(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    """Get chat message history"""
+# Export endpoints
+@app.post("/api/export")
+async def export_variants(request: ExportRequest):
+    """Export selected variants"""
     try:
-        return crud.get_chat_messages(db, skip=skip, limit=limit)
+        manifest = await get_preview_manifest()
+        selected_variants = [v for v in manifest["variants"] if v["id"] in request.variant_ids]
+        
+        if not selected_variants:
+            raise HTTPException(status_code=404, detail="No variants found")
+        
+        # Create export package
+        export_path = await preview_service.create_export(
+            selected_variants, 
+            request.format, 
+            request.include_assets, 
+            request.optimize
+        )
+        
+        return {
+            "success": True,
+            "download_url": f"/api/download/{os.path.basename(export_path)}",
+            "format": request.format
+        }
+        
     except Exception as e:
-        logger.error(f"Chat history retrieval failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Chat history retrieval failed: {str(e)}")
+        logger.error(f"Error exporting variants: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-# WebSocket endpoint for real-time communication
-@router.websocket("/ws/{client_id}")
-async def websocket_endpoint(websocket: WebSocket, client_id: str, project_id: str = None):
-    """WebSocket endpoint for real-time updates"""
-    await websocket_manager.connect(websocket, client_id, project_id)
-    
+@app.get("/api/download/{filename}")
+async def download_file(filename: str):
+    """Download exported file"""
+    file_path = f"exports/{filename}"
+    if os.path.exists(file_path):
+        return FileResponse(file_path, filename=filename)
+    else:
+        raise HTTPException(status_code=404, detail="File not found")
+
+# Agent endpoints
+@app.get("/api/agents")
+async def get_agents():
+    """Get available agents"""
+    return [
+        {
+            "id": "architect",
+            "name": "Design Architect",
+            "role": "UI Structure",
+            "description": "Creates semantic UI schemas and component hierarchies",
+            "status": "idle",
+            "last_activity": datetime.now(),
+            "capabilities": ["UI Schema Generation", "Component Design", "Accessibility Planning"]
+        },
+        {
+            "id": "curator",
+            "name": "Style Curator",
+            "role": "Visual Design",
+            "description": "Crafts unique visual styles and design systems",
+            "status": "working",
+            "last_activity": datetime.now(),
+            "capabilities": ["Style Generation", "Color Theory", "Typography", "Trend Analysis"]
+        },
+        {
+            "id": "generator",
+            "name": "Code Generator",
+            "role": "Implementation",
+            "description": "Converts designs into production-ready code",
+            "status": "idle",
+            "last_activity": datetime.now(),
+            "capabilities": ["Next.js", "React", "TypeScript", "Tailwind CSS"]
+        },
+        {
+            "id": "previewer",
+            "name": "Preview Engine",
+            "role": "Live Preview",
+            "description": "Manages real-time preview generation and updates",
+            "status": "idle",
+            "last_activity": datetime.now(),
+            "capabilities": ["Live Preview", "Hot Reload", "Responsive Testing"]
+        },
+        {
+            "id": "qa",
+            "name": "QA Engineer",
+            "role": "Quality Assurance",
+            "description": "Ensures accessibility, performance, and code quality",
+            "status": "idle",
+            "last_activity": datetime.now(),
+            "capabilities": ["Accessibility Testing", "Performance Analysis", "Code Review"]
+        },
+        {
+            "id": "exporter",
+            "name": "Export Manager",
+            "role": "Deployment",
+            "description": "Packages and deploys final designs",
+            "status": "idle",
+            "last_activity": datetime.now(),
+            "capabilities": ["Export Generation", "Deployment", "Asset Optimization"]
+        }
+    ]
+
+@app.get("/api/agents/{agent_id}")
+async def get_agent_status(agent_id: str):
+    """Get specific agent status"""
+    agents = await get_agents()
+    agent = next((a for a in agents if a["id"] == agent_id), None)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return agent
+
+# Gemini API endpoints
+@app.post("/api/gemini")
+async def call_gemini(request: Dict[str, Any]):
+    """Direct Gemini API call"""
+    try:
+        prompt = request.get("prompt", "")
+        model = request.get("model", "gemini-pro")
+        temperature = request.get("temperature", 0.7)
+        max_tokens = request.get("max_tokens", 1024)
+        
+        # Configure model
+        genai_model = genai.GenerativeModel(model)
+        
+        response = genai_model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=temperature,
+                max_output_tokens=max_tokens,
+            )
+        )
+        
+        return {
+            "success": True,
+            "content": response.text,
+            "usage": {
+                "prompt_tokens": len(prompt.split()),
+                "completion_tokens": len(response.text.split()),
+                "total_tokens": len(prompt.split()) + len(response.text.split())
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error calling Gemini API: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+# Metrics endpoints
+@app.get("/api/metrics")
+async def get_performance_metrics():
+    """Get performance metrics"""
+    return [
+        {
+            "generation_time": 2.5,
+            "quality_score": 0.92,
+            "accessibility_score": 0.88,
+            "novelty_score": 0.85,
+            "user_satisfaction": 0.90,
+            "timestamp": datetime.now()
+        }
+    ]
+
+# WebSocket endpoint
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket connection for real-time updates"""
+    await ws_manager.connect(websocket)
     try:
         while True:
-            # Receive messages from client
             data = await websocket.receive_text()
-            
-            try:
-                import json
-                message_data = json.loads(data)
-                await websocket_manager.handle_client_message(client_id, message_data)
-            except json.JSONDecodeError:
-                await websocket_manager.send_personal_message(
-                    {"type": "error", "data": {"message": "Invalid JSON format"}},
-                    client_id
-                )
-                
+            message = json.loads(data)
+            await ws_manager.handle_message(websocket, message)
     except WebSocketDisconnect:
-        websocket_manager.disconnect(client_id)
-    except Exception as e:
-        logger.error(f"WebSocket error for client {client_id}: {str(e)}")
-        websocket_manager.disconnect(client_id)
+        ws_manager.disconnect(websocket)
 
-# Health check and system status endpoints
-@router.get("/health")
-async def health_check():
-    """Comprehensive health check"""
-    if hasattr(services, 'health_check'):
-        return await services.health_check()
-    else:
-        return {"status": "healthy", "services": ["mock"]}
+# Utility functions
+def apply_json_patches(obj: Dict[str, Any], patches: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Apply JSON patches to an object"""
+    result = obj.copy()
+    
+    for patch in patches:
+        op = patch.get("op")
+        path = patch.get("path", "")
+        value = patch.get("value")
+        
+        if op == "replace":
+            # Simple path replacement (for demo)
+            keys = path.strip("/").split("/")
+            current = result
+            for key in keys[:-1]:
+                current = current[key]
+            current[keys[-1]] = value
+        elif op == "add":
+            keys = path.strip("/").split("/")
+            current = result
+            for key in keys[:-1]:
+                if key not in current:
+                    current[key] = {}
+                current = current[key]
+            current[keys[-1]] = value
+    
+    return result
 
-@router.get("/websocket/stats")
-async def websocket_stats():
-    """Get WebSocket connection statistics"""
-    if hasattr(services, 'get_websocket_stats'):
-        return services.get_websocket_stats()
-    else:
-        return {"connections": 0, "projects": 0}
+# Mount static files
+app.mount("/previews", StaticFiles(directory="previews"), name="previews")
+app.mount("/exports", StaticFiles(directory="exports"), name="exports")
 
-@router.get("/agents/status", response_model=List[AgentStatusResponse])
-async def get_agent_status():
-    """Get real-time agent status"""
-    try:
-        if hasattr(services, 'get_agent_status_advanced'):
-            return services.get_agent_status_advanced()
-        else:
-            mock_results = services.get_agent_status_mock()
-            # Convert mock results to proper response models
-            return [
-                AgentStatusResponse(
-                    id=agent['id'],
-                    name=agent['name'],
-                    specialization=['general'],
-                    status=agent['status'],
-                    progress=float(agent['progress']),
-                    current_task='Ready',
-                    performance={'successRate': 0.9, 'qualityScore': 0.85, 'avgDuration': 2000}
-                )
-                for agent in mock_results
-            ]
-    except Exception as e:
-        logger.error(f"Agent status retrieval failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Agent status retrieval failed: {str(e)}")
-
-@router.get("/agents/status/mock")
-async def get_agent_status_mock_endpoint():
-    """Get agent status using mock service (for testing)"""
-    return services.get_agent_status_mock()
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,392 +1,277 @@
-/**
- * API Client for Magic UI Studio Pro
- * Centralized API communication with error handling and type safety
- */
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { 
+  GenerationRequest, 
+  GenerationResponse, 
+  ChatMessage, 
+  PatchRequest, 
+  PatchResponse,
+  ExportRequest,
+  ExportResponse,
+  GeminiRequest,
+  GeminiResponse,
+  PreviewManifest,
+  Agent,
+  PerformanceMetrics
+} from './types';
 
-import { ChatMessage, GeneratedUI, Agent } from './types'
+class MagicUIAPI {
+  private api: AxiosInstance;
+  private ws: WebSocket | null = null;
+  private wsListeners: Map<string, (data: any) => void> = new Map();
 
-// Configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
-const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws'
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || 'demo-key'
-
-// Request/Response Types
-export interface ChatRequest {
-  message: string
-  session_id?: string
-  project_id?: string
-  context?: Record<string, any>
-}
-
-export interface ChatResponse {
-  id: string
-  type: 'user' | 'assistant' | 'system'
-  content: string
-  timestamp: string
-  suggestions?: string[]
-  metadata?: Record<string, any>
-}
-
-export interface DesignRequest {
-  prompt: string
-  page_type?: string
-  style_preferences?: string[]
-  complexity?: string
-  requirements?: string[]
-  project_id?: string
-  session_id?: string
-}
-
-export interface UIGenerationResponse {
-  id: string
-  request_id: string
-  code: string
-  preview: string
-  components: any[]
-  metrics: {
-    novelty: number
-    quality: number
-    performance: number
-    accessibility: number
-  }
-  status: string
-  created_at: string
-}
-
-export interface PromptAnalysisRequest {
-  prompt: string
-  context?: Record<string, any>
-}
-
-export interface DesignIntentResponse {
-  page_type: string
-  style_preferences: string[]
-  components: string[]
-  layout: string
-  complexity: number
-  business_domain: string
-  target_audience: string
-  brand_personality: string[]
-  functional_requirements: string[]
-  technical_requirements: string[]
-  confidence: number
-}
-
-export interface AgentStatusResponse {
-  id: string
-  name: string
-  specialization: string[]
-  status: 'idle' | 'working' | 'completed' | 'error'
-  progress: number
-  current_task: string
-  performance: {
-    successRate: number
-    qualityScore: number
-    avgDuration: number
-  }
-}
-
-// API Error Class
-export class APIError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-    public response?: any
-  ) {
-    super(message)
-    this.name = 'APIError'
-  }
-}
-
-// API Client Class
-export class MagicUIAPIClient {
-  private baseURL: string
-  private apiKey: string
-
-  constructor(baseURL: string = API_BASE_URL, apiKey: string = API_KEY) {
-    this.baseURL = baseURL
-    this.apiKey = apiKey
-  }
-
-  private async request<T>(
-    endpoint: string, 
-    options: RequestInit = {}
-  ): Promise<T> {
-    const url = `${this.baseURL}${endpoint}`
-    
-    const config: RequestInit = {
-      ...options,
+  constructor(baseURL: string = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') {
+    this.api = axios.create({
+      baseURL: `${baseURL}/api`,
+      timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        'X-API-KEY': this.apiKey,
-        ...options.headers
+      },
+    });
+
+    this.setupInterceptors();
+  }
+
+  private setupInterceptors() {
+    this.api.interceptors.request.use(
+      (config) => {
+        const token = localStorage.getItem('magic_ui_token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    this.api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          localStorage.removeItem('magic_ui_token');
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
       }
+    );
+  }
+
+  // WebSocket Connection
+  connectWebSocket(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws';
+      this.ws = new WebSocket(wsUrl);
+
+      this.ws.onopen = () => {
+        console.log('WebSocket connected');
+        resolve();
+      };
+
+      this.ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          this.handleWebSocketMessage(message);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      this.ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        reject(error);
+      };
+
+      this.ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        // Attempt to reconnect after 3 seconds
+        setTimeout(() => {
+          if (this.ws?.readyState === WebSocket.CLOSED) {
+            this.connectWebSocket();
+          }
+        }, 3000);
+      };
+    });
+  }
+
+  private handleWebSocketMessage(message: any) {
+    const { type, data } = message;
+    const listener = this.wsListeners.get(type);
+    if (listener) {
+      listener(data);
     }
+  }
 
+  onWebSocketMessage(type: string, callback: (data: any) => void) {
+    this.wsListeners.set(type, callback);
+  }
+
+  offWebSocketMessage(type: string) {
+    this.wsListeners.delete(type);
+  }
+
+  // Generation API
+  async generateUI(request: GenerationRequest): Promise<GenerationResponse> {
     try {
-      const response = await fetch(url, config)
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new APIError(
-          errorData.detail || `HTTP ${response.status}: ${response.statusText}`,
-          response.status,
-          errorData
-        )
-      }
+      const response: AxiosResponse<GenerationResponse> = await this.api.post('/generate', request);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to generate UI');
+    }
+  }
 
-      return await response.json()
-    } catch (error) {
-      if (error instanceof APIError) {
-        throw error
-      }
-      throw new APIError(
-        `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        0
-      )
+  async getPreviewManifest(): Promise<PreviewManifest> {
+    try {
+      const response: AxiosResponse<PreviewManifest> = await this.api.get('/preview/manifest');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to get preview manifest');
     }
   }
 
   // Chat API
-  async sendChatMessage(request: ChatRequest): Promise<ChatResponse> {
-    return this.request<ChatResponse>('/chat', {
-      method: 'POST',
-      body: JSON.stringify(request)
-    })
-  }
-
-  async getChatHistory(skip = 0, limit = 100): Promise<ChatMessage[]> {
-    return this.request<ChatMessage[]>(`/chat/history?skip=${skip}&limit=${limit}`)
-  }
-
-  // UI Generation API
-  async generateUI(request: DesignRequest): Promise<UIGenerationResponse> {
-    return this.request<UIGenerationResponse>('/generate-ui', {
-      method: 'POST',
-      body: JSON.stringify(request)
-    })
-  }
-
-  // Mock endpoints for testing
-  async generateUIMock(request: DesignRequest): Promise<any> {
-    return this.request('/generate-ui/mock', {
-      method: 'POST',
-      body: JSON.stringify(request)
-    })
-  }
-
-  async sendChatMessageMock(request: ChatRequest): Promise<any> {
-    return this.request('/chat/mock', {
-      method: 'POST',
-      body: JSON.stringify(request)
-    })
-  }
-
-  // Prompt Analysis API
-  async analyzePrompt(request: PromptAnalysisRequest): Promise<DesignIntentResponse> {
-    return this.request<DesignIntentResponse>('/analyze-prompt', {
-      method: 'POST',
-      body: JSON.stringify(request)
-    })
-  }
-
-  async analyzePromptMock(request: PromptAnalysisRequest): Promise<any> {
-    return this.request('/analyze-prompt/mock', {
-      method: 'POST',
-      body: JSON.stringify(request)
-    })
-  }
-
-  // Agent Status API
-  async getAgentStatus(): Promise<AgentStatusResponse[]> {
-    return this.request<AgentStatusResponse[]>('/agents/status')
-  }
-
-  async getAgentStatusMock(): Promise<any[]> {
-    return this.request('/agents/status/mock')
-  }
-
-  // Health Check API
-  async healthCheck(): Promise<any> {
-    return this.request('/health')
-  }
-
-  // WebSocket Stats API
-  async getWebSocketStats(): Promise<any> {
-    return this.request('/websocket/stats')
-  }
-}
-
-// WebSocket Client Class
-export class MagicUIWebSocketClient {
-  private ws: WebSocket | null = null
-  private reconnectAttempts = 0
-  private maxReconnectAttempts = 5
-  private reconnectDelay = 1000
-  private messageHandlers: Map<string, (data: any) => void> = new Map()
-  private clientId: string
-  private projectId: string | null = null
-  private isConnecting = false
-
-  constructor(clientId: string, projectId?: string) {
-    this.clientId = clientId
-    this.projectId = projectId || null
-  }
-
-  connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.CONNECTING)) {
-        return
-      }
-
-      this.isConnecting = true
-
-      try {
-        const wsUrl = `${WS_BASE_URL}/${this.clientId}${this.projectId ? `?project_id=${this.projectId}` : ''}`
-        this.ws = new WebSocket(wsUrl)
-
-        this.ws.onopen = () => {
-          console.log('WebSocket connected')
-          this.isConnecting = false
-          this.reconnectAttempts = 0
-          resolve()
-        }
-
-        this.ws.onmessage = (event) => {
-          try {
-            const message = JSON.parse(event.data)
-            const handler = this.messageHandlers.get(message.type)
-            if (handler) {
-              handler(message.data)
-            }
-            
-            // Also call wildcard handler
-            const wildcardHandler = this.messageHandlers.get('*')
-            if (wildcardHandler) {
-              wildcardHandler(message)
-            }
-          } catch (error) {
-            console.error('Error parsing WebSocket message:', error)
-          }
-        }
-
-        this.ws.onclose = (event) => {
-          console.log('WebSocket disconnected:', event.code, event.reason)
-          this.isConnecting = false
-          
-          if (!event.wasClean && this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.attemptReconnect()
-          }
-        }
-
-        this.ws.onerror = (error) => {
-          console.error('WebSocket error:', error)
-          this.isConnecting = false
-          reject(error)
-        }
-
-        // Timeout for connection
-        setTimeout(() => {
-          if (this.isConnecting) {
-            this.isConnecting = false
-            reject(new Error('WebSocket connection timeout'))
-          }
-        }, 10000)
-
-      } catch (error) {
-        this.isConnecting = false
-        reject(error)
-      }
-    })
-  }
-
-  private attemptReconnect() {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++
-      const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1)
-      
-      console.log(`Attempting to reconnect in ${delay}ms (${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
-      
-      setTimeout(() => {
-        this.connect().catch(error => {
-          console.error('Reconnection failed:', error)
-        })
-      }, delay)
-    } else {
-      console.error('Max reconnection attempts reached')
+  async sendChatMessage(message: Omit<ChatMessage, 'id' | 'timestamp'>): Promise<ChatMessage> {
+    try {
+      const response: AxiosResponse<ChatMessage> = await this.api.post('/chat', message);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to send chat message');
     }
   }
 
-  onMessage(type: string, handler: (data: any) => void) {
-    this.messageHandlers.set(type, handler)
-  }
-
-  sendMessage(type: string, data: any) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type, data }))
-    } else {
-      console.warn('WebSocket not connected, message not sent:', { type, data })
+  async getChatHistory(limit: number = 50): Promise<ChatMessage[]> {
+    try {
+      const response: AxiosResponse<ChatMessage[]> = await this.api.get(`/chat/history?limit=${limit}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to get chat history');
     }
   }
 
+  // Patch API
+  async applyPatch(request: PatchRequest): Promise<PatchResponse> {
+    try {
+      const response: AxiosResponse<PatchResponse> = await this.api.post('/patch', request);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to apply patch');
+    }
+  }
+
+  // Export API
+  async exportVariants(request: ExportRequest): Promise<ExportResponse> {
+    try {
+      const response: AxiosResponse<ExportResponse> = await this.api.post('/export', request);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to export variants');
+    }
+  }
+
+  // Agent API
+  async getAgents(): Promise<Agent[]> {
+    try {
+      const response: AxiosResponse<Agent[]> = await this.api.get('/agents');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to get agents');
+    }
+  }
+
+  async getAgentStatus(agentId: string): Promise<Agent> {
+    try {
+      const response: AxiosResponse<Agent> = await this.api.get(`/agents/${agentId}`);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to get agent status');
+    }
+  }
+
+  // Gemini API
+  async callGemini(request: GeminiRequest): Promise<GeminiResponse> {
+    try {
+      const response: AxiosResponse<GeminiResponse> = await this.api.post('/gemini', request);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to call Gemini API');
+    }
+  }
+
+  // Performance API
+  async getPerformanceMetrics(): Promise<PerformanceMetrics[]> {
+    try {
+      const response: AxiosResponse<PerformanceMetrics[]> = await this.api.get('/metrics');
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to get performance metrics');
+    }
+  }
+
+  // Health Check
+  async healthCheck(): Promise<{ status: string; timestamp: Date }> {
+    try {
+      const response: AxiosResponse<{ status: string; timestamp: string }> = await this.api.get('/health');
+      return {
+        status: response.data.status,
+        timestamp: new Date(response.data.timestamp)
+      };
+    } catch (error: any) {
+      throw new Error('API health check failed');
+    }
+  }
+
+  // Utility Methods
+  async uploadFile(file: File, variantId: string): Promise<{ url: string }> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('variant_id', variantId);
+
+      const response: AxiosResponse<{ url: string }> = await this.api.post('/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to upload file');
+    }
+  }
+
+  async downloadVariant(variantId: string): Promise<Blob> {
+    try {
+      const response: AxiosResponse<Blob> = await this.api.get(`/download/${variantId}`, {
+        responseType: 'blob',
+      });
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to download variant');
+    }
+  }
+
+  // Cleanup
   disconnect() {
     if (this.ws) {
-      this.ws.close(1000, 'Client disconnect')
-      this.ws = null
+      this.ws.close();
+      this.ws = null;
     }
-  }
-
-  get readyState(): number {
-    return this.ws ? this.ws.readyState : WebSocket.CLOSED
-  }
-
-  get isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN
+    this.wsListeners.clear();
   }
 }
 
-// Singleton instances
-export const apiClient = new MagicUIAPIClient()
-export const createWebSocketClient = (clientId: string, projectId?: string) => 
-  new MagicUIWebSocketClient(clientId, projectId)
+// Create singleton instance
+export const api = new MagicUIAPI();
 
-// Utility functions
-export function generateClientId(): string {
-  return `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-}
-
-export function generateProjectId(): string {
-  return `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-}
-
-export function generateSessionId(): string {
-  return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-}
-
-// Error handling utilities
-export function isAPIError(error: any): error is APIError {
-  return error instanceof APIError
-}
-
-export function handleAPIError(error: any): string {
-  if (isAPIError(error)) {
-    return error.message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return 'An unknown error occurred'
-}
-
-// Type guards
-export function isChatResponse(obj: any): obj is ChatResponse {
-  return obj && typeof obj.id === 'string' && typeof obj.content === 'string'
-}
-
-export function isUIGenerationResponse(obj: any): obj is UIGenerationResponse {
-  return obj && typeof obj.id === 'string' && typeof obj.code === 'string'
-}
-
-export function isAgentStatusResponse(obj: any): obj is AgentStatusResponse {
-  return obj && typeof obj.id === 'string' && typeof obj.name === 'string'
-}
+// Export types for convenience
+export type { 
+  GenerationRequest, 
+  GenerationResponse, 
+  ChatMessage, 
+  PatchRequest, 
+  PatchResponse,
+  ExportRequest,
+  ExportResponse,
+  GeminiRequest,
+  GeminiResponse,
+  PreviewManifest,
+  Agent,
+  PerformanceMetrics
+};

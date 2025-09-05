@@ -1,185 +1,93 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from sqlalchemy import Column, String, DateTime, Text, Float, Integer, JSON, Boolean
-from .database import Base
-import datetime
-from enum import Enum
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, Float, JSON
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from datetime import datetime
+import json
 
-# Enums
-class AgentStatus(str, Enum):
-    IDLE = "idle"
-    WORKING = "working"
-    COMPLETED = "completed"
-    ERROR = "error"
+Base = declarative_base()
 
-class MessageType(str, Enum):
-    USER = "user"
-    ASSISTANT = "assistant"
-    SYSTEM = "system"
+class UISchema(Base):
+    __tablename__ = "ui_schemas"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    schema_data = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-class PageType(str, Enum):
-    LANDING = "landing"
-    LOGIN = "login"
-    SIGNUP = "signup"
-    DASHBOARD = "dashboard"
-    ECOMMERCE = "ecommerce"
-    BLOG = "blog"
-    PORTFOLIO = "portfolio"
-    CONTACT = "contact"
+class StyleSpec(Base):
+    __tablename__ = "style_specs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    style_data = Column(JSON, nullable=False)
+    novelty_score = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-# Database Models
+class Variant(Base):
+    __tablename__ = "variants"
+    
+    id = Column(String(50), primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    style = Column(String(100), nullable=False)
+    preview_url = Column(String(500))
+    build_path = Column(String(500))
+    novelty_score = Column(Float, default=0.0)
+    quality_scores = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
-
-    id = Column(String, primary_key=True, index=True)
-    type = Column(String)
-    content = Column(Text)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
-    session_id = Column(String, index=True)
-    extra_data = Column(JSON, nullable=True)
-
-class Project(Base):
-    __tablename__ = "projects"
     
-    id = Column(String, primary_key=True, index=True)
-    name = Column(String, index=True)
+    id = Column(String(50), primary_key=True, index=True)
+    role = Column(String(50), nullable=False)
+    agent = Column(String(100))
+    text = Column(Text, nullable=False)
+    metadata = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class Generation(Base):
+    __tablename__ = "generations"
+    
+    id = Column(String(50), primary_key=True, index=True)
+    brief = Column(Text, nullable=False)
+    mood = Column(String(100))
+    status = Column(String(50), default="pending")
+    manifest_data = Column(JSON)
+    processing_time = Column(Float)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime)
+
+class Agent(Base):
+    __tablename__ = "agents"
+    
+    id = Column(String(50), primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    role = Column(String(100), nullable=False)
     description = Column(Text)
-    user_id = Column(String, index=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow)
-    status = Column(String, default="active")
-    settings = Column(JSON, nullable=True)
+    status = Column(String(50), default="idle")
+    last_activity = Column(DateTime, default=datetime.utcnow)
+    capabilities = Column(JSON)
 
-class GeneratedUI(Base):
-    __tablename__ = "generated_uis"
+class PerformanceMetric(Base):
+    __tablename__ = "performance_metrics"
     
-    id = Column(String, primary_key=True, index=True)
-    project_id = Column(String, index=True)
-    request_id = Column(String, index=True)
-    page_type = Column(String)
-    style_variant = Column(String)
-    code = Column(Text)
-    preview_html = Column(Text)
-    components = Column(JSON)
-    metrics = Column(JSON)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    is_active = Column(Boolean, default=True)
+    id = Column(Integer, primary_key=True, index=True)
+    generation_time = Column(Float)
+    quality_score = Column(Float)
+    accessibility_score = Column(Float)
+    novelty_score = Column(Float)
+    user_satisfaction = Column(Float)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-class AgentExecution(Base):
-    __tablename__ = "agent_executions"
+class DesignMemory(Base):
+    __tablename__ = "design_memory"
     
-    id = Column(String, primary_key=True, index=True)
-    project_id = Column(String, index=True)
-    agent_name = Column(String)
-    status = Column(String)
-    progress = Column(Float, default=0.0)
-    current_task = Column(String)
-    start_time = Column(DateTime, default=datetime.datetime.utcnow)
-    end_time = Column(DateTime, nullable=True)
-    result = Column(JSON, nullable=True)
-    error_message = Column(Text, nullable=True)
-
-# Pydantic Schemas
-class ChatMessageBase(BaseModel):
-    type: str
-    content: str
-
-class ChatMessageCreate(ChatMessageBase):
-    pass
-
-class ChatMessageSchema(ChatMessageBase):
-    id: str
-    timestamp: datetime.datetime
-
-    class Config:
-        from_attributes = True
-
-class DesignRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, max_length=2000, description="User's design prompt")
-    page_type: Optional[PageType] = PageType.LANDING
-    style_preferences: List[str] = Field(default_factory=list, description="Style preferences like 'minimalist', 'glassmorphism'")
-    complexity: str = Field(default="medium", pattern="^(low|medium|high)$")
-    requirements: List[str] = Field(default_factory=list, description="Functional requirements")
-    project_id: Optional[str] = None
-    session_id: Optional[str] = None
-    
-    class Config:
-        use_enum_values = True
-
-class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=2000)
-    session_id: Optional[str] = None
-    project_id: Optional[str] = None
-    context: Optional[Dict[str, Any]] = None
-
-class PromptAnalysisRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, max_length=2000)
-    context: Optional[Dict[str, Any]] = None
-
-# Response Models
-class DesignIntentResponse(BaseModel):
-    page_type: str
-    style_preferences: List[str]
-    components: List[str]
-    layout: str
-    complexity: float
-    business_domain: str
-    target_audience: str
-    brand_personality: List[str]
-    functional_requirements: List[str]
-    technical_requirements: List[str]
-    confidence: float
-
-class AgentStatusResponse(BaseModel):
-    id: str
-    name: str
-    specialization: List[str]
-    status: AgentStatus
-    progress: float
-    current_task: str
-    performance: Dict[str, float]
-    
-    class Config:
-        use_enum_values = True
-
-class UIGenerationResponse(BaseModel):
-    id: str
-    request_id: str
-    code: str
-    preview: str
-    components: List[Any]
-    metrics: Dict[str, float]
-    status: str = "completed"
-    created_at: datetime.datetime
-
-class ChatResponse(BaseModel):
-    id: str
-    type: MessageType
-    content: str
-    timestamp: datetime.datetime
-    suggestions: Optional[List[str]] = None
-    extra_data: Optional[Dict[str, Any]] = None
-    
-    class Config:
-        use_enum_values = True
-
-class WebSocketMessage(BaseModel):
-    type: str
-    data: Dict[str, Any]
-    timestamp: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
-
-# CrewAI Integration Models
-class CrewAIAgent(BaseModel):
-    role: str
-    goal: str
-    backstory: str
-    tools: List[str] = Field(default_factory=list)
-    verbose: bool = True
-    allow_delegation: bool = False
-
-class CrewAITask(BaseModel):
-    description: str
-    agent: str
-    expected_output: str
-    tools: List[str] = Field(default_factory=list)
-    context: Optional[Dict[str, Any]] = None
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(100), nullable=False)
+    style_dna = Column(JSON)
+    novelty_hashes = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

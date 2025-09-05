@@ -1,413 +1,494 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Header } from '../components/ui/header'
-import { AgentDashboard } from '../components/ui/agent-dashboard'
-import { HolographicPreview } from '../components/ui/holographic-preview'
-import { IntelligenceMetrics } from '../components/ui/intelligence-metrics'
-import { ChatInterface } from '../components/ui/chat-interface'
-import { useMagicUI } from '../lib/hooks'
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, 
-  Zap, 
-  Brain, 
-  Layers, 
-  Palette, 
   Code, 
+  Palette, 
   Eye, 
-  Shield,
-  Rocket,
-  Command,
-  Play,
+  Bug, 
+  Download, 
+  Send, 
+  Pin, 
+  Copy, 
+  Settings,
+  Zap,
+  Brain,
+  Layers,
   ChevronRight,
-  ArrowRight
-} from 'lucide-react'
+  Play,
+  Pause,
+  RotateCcw
+} from 'lucide-react';
+import { useChat, usePreviewManifest, useGeneration, useAgents, useVariantSelection } from '@/lib/hooks';
+import { cn, formatRelativeTime, copyToClipboard, downloadFile } from '@/lib/utils';
+import toast from 'react-hot-toast';
 
-export default function Home() {
-  const { 
-    agents, 
-    messages, 
-    generatedUI, 
-    isLoading, 
-    handleSendMessage 
-  } = useMagicUI()
+// Mock data for initial state
+const initialVariants = [
+  { 
+    id: 'v1', 
+    name: 'Retro Mesh', 
+    style: 'retro-futurism-mesh',
+    preview: '/previews/v1/index.html',
+    novelty: 0.92,
+    metadata: { width: 1200, height: 800, responsive: true }
+  },
+  { 
+    id: 'v2', 
+    name: 'Glass Aurora', 
+    style: 'glass-aurora',
+    preview: '/previews/v2/index.html',
+    novelty: 0.88,
+    metadata: { width: 1200, height: 800, responsive: true }
+  },
+  { 
+    id: 'v3', 
+    name: 'Brutalist', 
+    style: 'brutalist-editorial',
+    preview: '/previews/v3/index.html',
+    novelty: 0.85,
+    metadata: { width: 1200, height: 800, responsive: true }
+  },
+  { 
+    id: 'v4', 
+    name: 'Minimal Mono', 
+    style: 'minimal-monochrome',
+    preview: '/previews/v4/index.html',
+    novelty: 0.90,
+    metadata: { width: 1200, height: 800, responsive: true }
+  },
+];
+
+const agents = [
+  { id: 'architect', name: 'Design Architect', role: 'UI Structure', icon: Layers, status: 'idle' as const },
+  { id: 'curator', name: 'Style Curator', role: 'Visual Design', icon: Palette, status: 'working' as const },
+  { id: 'generator', name: 'Code Generator', role: 'Implementation', icon: Code, status: 'idle' as const },
+  { id: 'previewer', name: 'Preview Engine', role: 'Live Preview', icon: Eye, status: 'idle' as const },
+  { id: 'qa', name: 'QA Engineer', role: 'Quality Assurance', icon: Bug, status: 'idle' as const },
+  { id: 'exporter', name: 'Export Manager', role: 'Deployment', icon: Download, status: 'idle' as const },
+];
+
+export default function MagicUIElite() {
+  const [brief, setBrief] = useState('');
+  const [mood, setMood] = useState('futuristic');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [neuralNetwork, setNeuralNetwork] = useState(true);
   
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [showWelcome, setShowWelcome] = useState(true)
-  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const { messages, isLoading: chatLoading, sendMessage } = useChat();
+  const { manifest, isLoading: manifestLoading } = usePreviewManifest();
+  const { isGenerating: genLoading, progress, currentStep } = useGeneration();
+  const { agents: agentList, isLoading: agentsLoading } = useAgents();
+  const { selectedVariant, pinnedVariants, selectVariant, togglePin } = useVariantSelection();
 
-  useEffect(() => {
-    // Auto-hide welcome screen after user interaction or 10 seconds
-    const timer = setTimeout(() => {
-      if (messages.length <= 1) {
-        setShowWelcome(false)
-      }
-    }, 10000)
+  const variants = manifest?.variants || initialVariants;
+  const activeAgents = agentList.length > 0 ? agentList : agents;
 
-    return () => clearTimeout(timer)
-  }, [messages])
-
-  useEffect(() => {
-    if (messages.length > 1) {
-      setShowWelcome(false)
-    }
-  }, [messages])
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setCommandPaletteOpen(true)
-      }
-      if (e.key === 'Escape') {
-        setCommandPaletteOpen(false)
-      }
+  const handleGenerate = async () => {
+    if (!brief.trim()) {
+      toast.error('Please describe your UI idea');
+      return;
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
-
-  const handleDownload = () => {
-    if (generatedUI) {
-      const blob = new Blob([generatedUI.code], { type: 'text/javascript' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'generated-component.tsx'
-      a.click()
-      URL.revokeObjectURL(url)
+    setIsGenerating(true);
+    try {
+      // Simulate generation process
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      toast.success('UI variants generated successfully!');
+    } catch (error) {
+      toast.error('Failed to generate UI variants');
+    } finally {
+      setIsGenerating(false);
     }
-  }
+  };
 
-  const handleGetStarted = () => {
-    setShowWelcome(false)
-    // Auto-focus chat input
-    setTimeout(() => {
-      const chatInput = document.querySelector('input[placeholder*="Describe the UI"]') as HTMLInputElement
-      chatInput?.focus()
-    }, 500)
-  }
+  const handleAgentClick = (agentId: string) => {
+    setSelectedAgent(selectedAgent === agentId ? null : agentId);
+  };
 
-  const features = [
-    {
-      icon: Brain,
-      title: "Neural AI Orchestration",
-      description: "6 specialized AI agents working in perfect harmony",
-      gradient: "from-teal-500 to-cyan-600"
-    },
-    {
-      icon: Layers,
-      title: "Holographic Previews",
-      description: "Multi-dimensional UI visualization with real-time rendering",
-      gradient: "from-amber-500 to-orange-600"
-    },
-    {
-      icon: Zap,
-      title: "Instant Generation",
-      description: "From concept to code in seconds, not hours",
-      gradient: "from-purple-500 to-pink-600"
-    },
-    {
-      icon: Shield,
-      title: "Enterprise Ready",
-      description: "Production-grade code with built-in security",
-      gradient: "from-green-500 to-emerald-600"
+  const handleCopyCode = async (variantId: string) => {
+    try {
+      await copyToClipboard(`// Generated code for ${variantId}`);
+      toast.success('Code copied to clipboard!');
+    } catch (error) {
+      toast.error('Failed to copy code');
     }
-  ]
+  };
 
-  if (showWelcome) {
-    return (
-      <div className="min-h-screen relative overflow-hidden">
-        {/* Animated Background */}
-        <div className="absolute inset-0 premium-holographic opacity-20" />
-        <div className="absolute inset-0 premium-mesh opacity-30" />
-        
-        {/* Floating Elements */}
-        <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-r from-teal-500/20 to-cyan-500/20 rounded-full blur-xl animate-premium-float" />
-        <div className="absolute top-40 right-20 w-48 h-48 bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-full blur-xl animate-premium-float" style={{ animationDelay: '1s' }} />
-        <div className="absolute bottom-32 left-1/4 w-24 h-24 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-full blur-xl animate-premium-float" style={{ animationDelay: '2s' }} />
-        
-        <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4">
-          {/* Hero Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center max-w-5xl mx-auto"
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="mb-8"
-            >
-              <div className="inline-flex items-center gap-3 px-6 py-3 bg-white/10 backdrop-blur-md rounded-full border border-white/20 mb-6">
-                <Sparkles className="w-5 h-5 text-amber-400" />
-                <span className="text-white/90 text-sm font-medium">Magic UI Studio Pro v2.0</span>
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-              </div>
-              
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6">
-                <span className="bg-gradient-to-r from-white via-teal-200 to-amber-200 bg-clip-text text-transparent">
-                  Create Elite UI
-                </span>
-                <br />
-                <span className="bg-gradient-to-r from-amber-200 via-orange-200 to-pink-200 bg-clip-text text-transparent">
-                  With AI Power
-                </span>
-              </h1>
-              
-              <p className="text-xl md:text-2xl text-white/80 mb-8 leading-relaxed">
-                Transform your ideas into stunning user interfaces through our revolutionary 
-                AI orchestration platform. Experience the future of design automation.
-              </p>
-            </motion.div>
-
-            {/* Feature Grid */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
-            >
-              {features.map((feature, index) => (
-                <motion.div
-                  key={feature.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.6 + index * 0.1 }}
-                  className="group"
-                >
-                  <div className="premium-card p-6 text-center hover-lift-premium h-full">
-                    <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-r ${feature.gradient} mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                      <feature.icon className="w-6 h-6 text-white" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
-                    <p className="text-sm text-gray-600">{feature.description}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-
-            {/* CTA Section */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.8 }}
-              className="flex flex-col sm:flex-row items-center justify-center gap-4"
-            >
-              <motion.button
-                onClick={handleGetStarted}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="group relative px-8 py-4 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl font-semibold text-lg shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center gap-3"
-              >
-                <Play className="w-5 h-5" />
-                Start Creating Magic
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                <div className="absolute inset-0 bg-gradient-to-r from-teal-400 to-cyan-400 rounded-xl opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
-              </motion.button>
-              
-              <motion.button
-                onClick={() => setCommandPaletteOpen(true)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="group px-8 py-4 bg-white/10 backdrop-blur-md text-white rounded-xl font-semibold text-lg border border-white/20 hover:bg-white/20 transition-all duration-300 flex items-center gap-3"
-              >
-                <Command className="w-5 h-5" />
-                Quick Command
-                <span className="text-sm opacity-70">⌘K</span>
-              </motion.button>
-            </motion.div>
-
-            {/* Stats */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 1.0 }}
-              className="mt-16 grid grid-cols-3 gap-8"
-            >
-              {[
-                { value: "10K+", label: "UIs Generated" },
-                { value: "99.9%", label: "Uptime" },
-                { value: "< 3s", label: "Generation Time" }
-              ].map((stat, index) => (
-                <div key={stat.label} className="text-center">
-                  <div className="text-2xl md:text-3xl font-bold text-white mb-1">{stat.value}</div>
-                  <div className="text-sm text-white/70">{stat.label}</div>
-                </div>
-              ))}
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {/* Command Palette Overlay */}
-        <AnimatePresence>
-          {commandPaletteOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center pt-32"
-              onClick={() => setCommandPaletteOpen(false)}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: -20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                className="premium-card w-full max-w-2xl mx-4 p-6"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <Command className="w-5 h-5 text-teal-600" />
-                  <h3 className="text-lg font-semibold">Quick Actions</h3>
-                </div>
-                <div className="space-y-2">
-                  {[
-                    { label: "Create Login Page", action: () => handleSendMessage("Create a modern login page") },
-                    { label: "Build Dashboard", action: () => handleSendMessage("Design a dashboard layout") },
-                    { label: "Generate Contact Form", action: () => handleSendMessage("Build a contact form") },
-                    { label: "Make Hero Section", action: () => handleSendMessage("Create a hero section") }
-                  ].map((item) => (
-                    <button
-                      key={item.label}
-                      onClick={() => {
-                        item.action()
-                        setCommandPaletteOpen(false)
-                        handleGetStarted()
-                      }}
-                      className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between group"
-                    >
-                      <span>{item.label}</span>
-                      <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    )
-  }
+  const handleExport = async (variantId: string) => {
+    try {
+      downloadFile('// Export placeholder', `${variantId}-export.zip`, 'application/zip');
+      toast.success('Export started!');
+    } catch (error) {
+      toast.error('Failed to export variant');
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-teal-50/30 relative">
-      {/* Subtle background pattern */}
-      <div className="absolute inset-0 premium-mesh opacity-20" />
+    <main className="min-h-screen relative overflow-hidden">
+      {/* Aurora Background */}
+      <div className="aurora-bg" />
       
-      <Header 
-        onDownload={handleDownload}
-        onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
-        isFullscreen={isFullscreen}
-        hasGeneratedUI={!!generatedUI}
-      />
-
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 h-[calc(100vh-200px)]">
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6 }}
-            className="lg:col-span-4 space-y-4 h-full overflow-hidden"
-          >
-            <div className="h-1/2 overflow-y-auto">
-              <AgentDashboard agents={agents} />
-            </div>
-            
-            <div className="h-1/2">
-              <ChatInterface 
-                messages={messages} 
-                onSendMessage={handleSendMessage}
-                isLoading={isLoading}
-              />
-            </div>
-          </motion.div>
-
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="lg:col-span-8 space-y-4 h-full overflow-hidden"
-          >
-            <div className="h-2/3">
-              <HolographicPreview
-                previewHtml={generatedUI?.preview}
-                code={generatedUI?.code}
-                onDownload={handleDownload}
-              />
-            </div>
-
-            {generatedUI?.metrics && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                className="h-1/3 overflow-y-auto"
-              >
-                <IntelligenceMetrics
-                  metrics={generatedUI.metrics}
-                  recommendations={[
-                    "Consider adding more interactive elements to improve user engagement",
-                    "The color contrast could be enhanced for better accessibility",
-                    "Adding micro-animations would make the interface more polished"
-                  ]}
-                />
-              </motion.div>
-            )}
-          </motion.div>
+      {/* Neural Network Visualization */}
+      {neuralNetwork && (
+        <div className="fixed inset-0 pointer-events-none z-0">
+          <div className="absolute top-20 left-20 w-4 h-4 neural-node" />
+          <div className="absolute top-32 right-32 w-3 h-3 neural-node" />
+          <div className="absolute bottom-40 left-1/3 w-2 h-2 neural-node" />
+          <div className="absolute bottom-20 right-20 w-5 h-5 neural-node" />
         </div>
-      </div>
+      )}
 
-      {/* Command Palette for main interface */}
-      <AnimatePresence>
-        {commandPaletteOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-start justify-center pt-32"
-            onClick={() => setCommandPaletteOpen(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: -20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -20 }}
-              className="premium-card w-full max-w-2xl mx-4 p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <Command className="w-5 h-5 text-teal-600" />
-                <h3 className="text-lg font-semibold">Quick Actions</h3>
+      <div className="relative z-10 p-6 max-w-[1600px] mx-auto">
+        <div className="grid grid-cols-12 gap-6 h-screen">
+          
+          {/* Left Panel - Agents */}
+          <aside className="col-span-3 glass-premium rounded-2xl p-6 space-y-6">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-token-primary to-token-accent flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-token-bg" />
               </div>
-              <div className="space-y-2">
-                {[
-                  { label: "Create Login Page", action: () => handleSendMessage("Create a modern login page") },
-                  { label: "Build Dashboard", action: () => handleSendMessage("Design a dashboard layout") },
-                  { label: "Generate Contact Form", action: () => handleSendMessage("Build a contact form") },
-                  { label: "Make Hero Section", action: () => handleSendMessage("Create a hero section") },
-                  { label: "Design Pricing Table", action: () => handleSendMessage("Generate a pricing table") },
-                  { label: "Create Navigation Bar", action: () => handleSendMessage("Build a navigation header") }
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => {
-                      item.action()
-                      setCommandPaletteOpen(false)
-                    }}
-                    className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-between group"
+              <div>
+                <h1 className="text-xl font-bold text-gradient">Magic Studio</h1>
+                <p className="text-sm text-token-muted">AI-Powered UI Generation</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-token-muted uppercase tracking-wider">Agents</h3>
+              {activeAgents.map((agent) => {
+                const Icon = agent.icon;
+    return (
+                  <motion.button
+                    key={agent.id}
+                    onClick={() => handleAgentClick(agent.id)}
+                    className={cn(
+                      "w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300",
+                      selectedAgent === agent.id 
+                        ? "bg-gradient-to-r from-token-primary/20 to-token-accent/20 border border-token-primary/30" 
+                        : "hover:bg-white/5"
+                    )}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <span>{item.label}</span>
-                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className={cn(
+                      "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                      agent.status === 'working' 
+                        ? "bg-token-primary/20 text-token-primary" 
+                        : "bg-token-muted/20 text-token-muted"
+                    )}>
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="font-medium text-sm">{agent.name}</div>
+                      <div className="text-xs text-token-muted">{agent.role}</div>
+                    </div>
+                    {agent.status === 'working' && (
+                      <div className="w-2 h-2 rounded-full bg-token-primary animate-pulse" />
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
+
+            <div className="pt-6 border-t border-white/10">
+              <h3 className="text-sm font-semibold text-token-muted uppercase tracking-wider mb-4">Mood</h3>
+              <div className="flex flex-wrap gap-2">
+                {['futuristic', 'minimal', 'playful', 'professional'].map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setMood(m)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                      mood === m 
+                        ? "bg-token-primary text-token-bg" 
+                        : "bg-white/5 text-token-muted hover:bg-white/10"
+                    )}
+                  >
+                    {m}
                   </button>
                 ))}
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
+            </div>
+
+            <div className="pt-6 border-t border-white/10">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-token-muted uppercase tracking-wider">Neural Network</h3>
+                <button
+                  onClick={() => setNeuralNetwork(!neuralNetwork)}
+                  className={cn(
+                    "w-10 h-6 rounded-full transition-colors",
+                    neuralNetwork ? "bg-token-primary" : "bg-token-muted/30"
+                  )}
+                >
+                  <div className={cn(
+                    "w-4 h-4 rounded-full bg-white transition-transform",
+                    neuralNetwork ? "translate-x-5" : "translate-x-1"
+                  )} />
+                </button>
+              </div>
+              <div className="text-xs text-token-muted">
+                Real-time agent connections and data flow visualization
+              </div>
+            </div>
+          </aside>
+
+          {/* Center Panel - Live Preview */}
+          <section className="col-span-6 space-y-6">
+            {/* Input Section */}
+            <div className="glass-premium rounded-2xl p-6">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <input
+                    value={brief}
+                    onChange={(e) => setBrief(e.target.value)}
+                    placeholder="Describe your UI: e.g., dashboard with sidebar and stats"
+                    className="w-full input-premium text-lg"
+                    onKeyPress={(e) => e.key === 'Enter' && handleGenerate()}
+                  />
+                </div>
+                <motion.button
+                  onClick={handleGenerate}
+                  disabled={isGenerating || !brief.trim()}
+                  className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-token-bg border-t-transparent rounded-full animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4" />
+                      Generate
+                    </>
+                  )}
+                </motion.button>
+              </div>
+              
+              {/* Progress Bar */}
+              {isGenerating && (
+            <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="mt-4 space-y-2"
+                >
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-token-muted">{currentStep}</span>
+                    <span className="text-token-primary">{Math.round(progress)}%</span>
+                  </div>
+                  <div className="w-full bg-token-surface rounded-full h-2">
+                    <motion.div
+                      className="h-2 bg-gradient-to-r from-token-primary to-token-accent rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progress}%` }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </div>
+
+            {/* Preview Grid */}
+            <div className="grid grid-cols-2 gap-6">
+              {variants.map((variant, index) => (
+                <motion.div
+                  key={variant.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className={cn(
+                    "glass-premium rounded-2xl overflow-hidden transition-all duration-300",
+                    selectedVariant === variant.id 
+                      ? "ring-2 ring-token-primary shadow-neural" 
+                      : "hover:scale-105 hover:shadow-premium"
+                  )}
+                >
+                  {/* Preview Header */}
+                  <div className="p-4 border-b border-white/10">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-token-text">{variant.name}</h3>
+                        <div className="flex items-center gap-2 text-xs text-token-muted">
+                          <span>{variant.style}</span>
+                          <span>•</span>
+                          <span>Novelty: {Math.round(variant.novelty * 100)}%</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => togglePin(variant.id)}
+                          className={cn(
+                            "p-2 rounded-lg transition-colors",
+                            pinnedVariants.has(variant.id)
+                              ? "bg-token-primary/20 text-token-primary"
+                              : "hover:bg-white/10 text-token-muted"
+                          )}
+                        >
+                          <Pin className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => selectVariant(variant.id)}
+                          className="px-3 py-1.5 rounded-lg bg-token-primary/10 text-token-primary text-xs font-medium hover:bg-token-primary/20 transition-colors"
+                        >
+                          Select
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Preview Iframe */}
+                  <div className="relative h-64 bg-token-surface">
+                    <iframe
+                      src={variant.preview}
+                      className="w-full h-full border-0"
+                      title={`${variant.name} Preview`}
+                      sandbox="allow-scripts allow-same-origin"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-token-bg/20 to-transparent pointer-events-none" />
+                  </div>
+
+                  {/* Preview Actions */}
+                  <div className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleCopyCode(variant.id)}
+                        className="p-2 rounded-lg hover:bg-white/10 text-token-muted transition-colors"
+                        title="Copy Code"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleExport(variant.id)}
+                        className="p-2 rounded-lg hover:bg-white/10 text-token-muted transition-colors"
+                        title="Export"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="text-xs text-token-muted">
+                      {variant.id.toUpperCase()}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Action Bar */}
+            <div className="flex items-center justify-between glass-premium rounded-2xl p-4">
+              <div className="flex items-center gap-4">
+                <button className="btn-secondary flex items-center gap-2">
+                  <Download className="w-4 h-4" />
+                  Export All
+                </button>
+                <button className="btn-secondary flex items-center gap-2">
+                  <Copy className="w-4 h-4" />
+                  Copy Code
+                </button>
+                <button className="btn-secondary flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  Settings
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="p-2 rounded-lg hover:bg-white/10 text-token-muted transition-colors">
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+                <button className="p-2 rounded-lg hover:bg-white/10 text-token-muted transition-colors">
+                  <Play className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Right Panel - Chat */}
+          <aside className="col-span-3 glass-premium rounded-2xl p-6 flex flex-col">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-token-primary to-token-accent flex items-center justify-center">
+                <Brain className="w-4 h-4 text-token-bg" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-token-text">Chat with Crew</h3>
+                <p className="text-xs text-token-muted">AI-powered assistance</p>
+              </div>
+            </div>
+
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-auto space-y-4 mb-4">
+              <AnimatePresence>
+                {messages.map((message) => (
+            <motion.div
+                    key={message.id}
+                    initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className={cn(
+                      "p-3 rounded-xl text-sm",
+                      message.role === 'user' 
+                        ? "bg-token-primary/20 text-token-text ml-8" 
+                        : "bg-white/5 text-token-text mr-8"
+                    )}
+                  >
+                    <div className="font-medium text-xs text-token-muted mb-1">
+                      {message.role === 'user' ? 'You' : message.agent || 'System'}
+                    </div>
+                    <div>{message.text}</div>
+                    <div className="text-xs text-token-muted mt-1">
+                      {formatRelativeTime(message.timestamp)}
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+
+            {/* Chat Input */}
+            <div className="flex gap-2">
+              <input
+                placeholder="Ask the crew..."
+                className="flex-1 input-premium"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    const input = e.target as HTMLInputElement;
+                    if (input.value.trim()) {
+                      sendMessage(input.value.trim());
+                      input.value = '';
+                    }
+                  }
+                }}
+              />
+              <motion.button
+                className="p-3 rounded-lg bg-token-primary text-token-bg hover:bg-token-primary/90 transition-colors"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Send className="w-4 h-4" />
+              </motion.button>
+            </div>
+            
+            {/* Quick Actions */}
+            <div className="mt-4 pt-4 border-t border-white/10">
+              <div className="grid grid-cols-2 gap-2">
+                <button className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs transition-colors">
+                  Generate More
+                </button>
+                <button className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs transition-colors">
+                  Refine Style
+                </button>
+                <button className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs transition-colors">
+                  Export Code
+                </button>
+                <button className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs transition-colors">
+                  Share
+                </button>
+            </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </main>
+  );
 }
