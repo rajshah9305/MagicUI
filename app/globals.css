@@ -1,0 +1,483 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Premium Design System - Magic UI Studio Pro */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    
+    /* Primary: Deep Teal - Sophisticated, AI-focused */
+    --primary: 180 100% 25%;
+    --primary-foreground: 210 20% 98%;
+    --primary-50: 180 100% 97%;
+    --primary-100: 180 100% 94%;
+    --primary-200: 180 100% 87%;
+    --primary-300: 180 100% 78%;
+    --primary-400: 180 100% 68%;
+    --primary-500: 180 100% 25%;
+    --primary-600: 180 100% 20%;
+    --primary-700: 180 100% 15%;
+    --primary-800: 180 100% 10%;
+    --primary-900: 180 100% 5%;
+    
+    /* Secondary: Warm Gold - Premium, luxurious */
+    --secondary: 45 100% 50%;
+    --secondary-foreground: 0 0% 0%;
+    --secondary-50: 45 100% 96%;
+    --secondary-100: 45 100% 89%;
+    --secondary-200: 45 100% 78%;
+    --secondary-300: 45 100% 68%;
+    --secondary-400: 45 100% 58%;
+    --secondary-500: 45 100% 50%;
+    --secondary-600: 45 100% 40%;
+    --secondary-700: 45 100% 30%;
+    --secondary-800: 45 100% 20%;
+    --secondary-900: 45 100% 10%;
+    
+    /* Accent: Coral - Energetic, creative */
+    --accent: 16 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    --accent-50: 16 100% 96%;
+    --accent-100: 16 100% 89%;
+    --accent-200: 16 100% 78%;
+    --accent-300: 16 100% 68%;
+    --accent-400: 16 100% 58%;
+    --accent-500: 16 100% 50%;
+    --accent-600: 16 100% 40%;
+    --accent-700: 16 100% 30%;
+    --accent-800: 16 100% 20%;
+    --accent-900: 16 100% 10%;
+    
+    /* Success: Forest Green - Growth, achievement */
+    --success: 120 60% 35%;
+    --success-foreground: 0 0% 100%;
+    --success-50: 120 60% 96%;
+    --success-100: 120 60% 89%;
+    --success-200: 120 60% 78%;
+    --success-300: 120 60% 68%;
+    --success-400: 120 60% 58%;
+    --success-500: 120 60% 35%;
+    --success-600: 120 60% 30%;
+    --success-700: 120 60% 25%;
+    --success-800: 120 60% 20%;
+    --success-900: 120 60% 15%;
+    
+    /* Warning: Amber - Attention, caution */
+    --warning: 38 100% 50%;
+    --warning-foreground: 0 0% 0%;
+    --warning-50: 38 100% 96%;
+    --warning-100: 38 100% 89%;
+    --warning-200: 38 100% 78%;
+    --warning-300: 38 100% 68%;
+    --warning-400: 38 100% 58%;
+    --warning-500: 38 100% 50%;
+    --warning-600: 38 100% 40%;
+    --warning-700: 38 100% 30%;
+    --warning-800: 38 100% 20%;
+    --warning-900: 38 100% 10%;
+    
+    /* Error: Crimson - Critical states */
+    --error: 0 70% 50%;
+    --error-foreground: 0 0% 100%;
+    --error-50: 0 70% 96%;
+    --error-100: 0 70% 89%;
+    --error-200: 0 70% 78%;
+    --error-300: 0 70% 68%;
+    --error-400: 0 70% 58%;
+    --error-500: 0 70% 50%;
+    --error-600: 0 70% 40%;
+    --error-700: 0 70% 30%;
+    --error-800: 0 70% 20%;
+    --error-900: 0 70% 10%;
+    
+    /* Neutrals - Sophisticated grays */
+    --muted: 210 20% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 180 100% 25%;
+    
+    /* Premium Surface Effects */
+    --surface-elevated: rgba(255, 255, 255, 0.95);
+    --surface-subtle: rgba(255, 255, 255, 0.8);
+    --surface-overlay: rgba(0, 0, 0, 0.05);
+    --surface-accent: rgba(0, 128, 128, 0.05);
+    
+    /* Premium Shadows */
+    --shadow-soft: 0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04);
+    --shadow-medium: 0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --shadow-strong: 0 10px 40px -10px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-glow: 0 0 20px rgba(0, 128, 128, 0.3);
+    --shadow-gold: 0 0 20px rgba(255, 193, 7, 0.3);
+    
+    /* Premium Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(180, 100%, 25%) 0%, hsl(180, 100%, 35%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(45, 100%, 50%) 0%, hsl(16, 100%, 50%) 100%);
+    --gradient-surface: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(180, 100%, 25%) 0%, hsl(45, 100%, 50%) 50%, hsl(16, 100%, 50%) 100%);
+    --gradient-card: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.95) 100%);
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.1%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes bounceSubtle {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-4px); }
+  60% { transform: translateY(-2px); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.8); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(0, 128, 128, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(0, 128, 128, 0.6); }
+}
+
+@keyframes glowGold {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 193, 7, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(255, 193, 7, 0.6); }
+}
+
+@keyframes morphBackground {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes levitate {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  33% { transform: translateY(-10px) rotate(1deg); }
+  66% { transform: translateY(-5px) rotate(-1deg); }
+}
+
+@keyframes premiumFloat {
+  0%, 100% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-8px) scale(1.02); }
+}
+
+@keyframes shimmerPremium {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+@keyframes pulsePremium {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+@keyframes slideInPremium {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes fadeInPremium {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Premium Surface Effects */
+.premium-surface {
+  background: var(--surface-elevated);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(0, 128, 128, 0.1);
+  box-shadow: var(--shadow-soft);
+}
+
+.premium-card {
+  background: var(--gradient-card);
+  backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(0, 128, 128, 0.08);
+  box-shadow: var(--shadow-medium);
+}
+
+.premium-gradient {
+  background: var(--gradient-primary);
+}
+
+.premium-gradient-secondary {
+  background: var(--gradient-secondary);
+}
+
+.premium-gradient-hero {
+  background: var(--gradient-hero);
+}
+
+.surface-gradient {
+  background: var(--gradient-surface);
+}
+
+/* Premium Grid Pattern */
+.premium-grid {
+  background-image: 
+    radial-gradient(circle at 25px 25px, rgba(0, 128, 128, 0.1) 2px, transparent 0),
+    radial-gradient(circle at 75px 75px, rgba(255, 193, 7, 0.1) 2px, transparent 0);
+  background-size: 100px 100px;
+}
+
+.premium-mesh {
+  background-image: 
+    linear-gradient(45deg, rgba(0, 128, 128, 0.05) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255, 193, 7, 0.05) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(255, 99, 71, 0.05) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(0, 128, 128, 0.05) 75%);
+  background-size: 60px 60px;
+  background-position: 0 0, 0 30px, 30px -30px, -30px 0px;
+}
+
+.premium-holographic {
+  background: linear-gradient(45deg, 
+    hsl(180, 100%, 25%) 0%,
+    hsl(45, 100%, 50%) 25%,
+    hsl(16, 100%, 50%) 50%,
+    hsl(120, 60%, 35%) 75%,
+    hsl(180, 100%, 25%) 100%);
+  background-size: 400% 400%;
+  animation: morphBackground 8s ease infinite;
+}
+
+/* Premium Hover Effects */
+.hover-lift {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-strong);
+}
+
+.hover-lift-premium {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift-premium:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: var(--shadow-elevated);
+}
+
+.hover-glow {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-glow:hover {
+  box-shadow: var(--shadow-glow);
+}
+
+.hover-glow-gold {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-glow-gold:hover {
+  box-shadow: var(--shadow-gold);
+}
+
+/* Premium Animations */
+.animate-fade-in {
+  animation: fadeIn 0.6s ease-out;
+}
+
+.animate-fade-in-premium {
+  animation: fadeInPremium 0.8s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.4s ease-out;
+}
+
+.animate-slide-in-premium {
+  animation: slideInPremium 0.6s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.5s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.5s ease-out;
+}
+
+.animate-premium-float {
+  animation: premiumFloat 3s ease-in-out infinite;
+}
+
+.animate-shimmer-premium {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  background-size: 200px 100%;
+  animation: shimmerPremium 2s linear infinite;
+}
+
+.animate-pulse-premium {
+  animation: pulsePremium 2s ease-in-out infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-glow-gold {
+  animation: glowGold 2s ease-in-out infinite;
+}
+
+/* Responsive utility classes */
+@media (max-width: 640px) {
+  .mobile-hidden {
+    display: none !important;
+  }
+  
+  .mobile-text-xs {
+    font-size: 0.75rem !important;
+    line-height: 1rem !important;
+  }
+  
+  .mobile-text-sm {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+  }
+  
+  .mobile-p-2 {
+    padding: 0.5rem !important;
+  }
+  
+  .mobile-p-3 {
+    padding: 0.75rem !important;
+  }
+  
+  .mobile-gap-2 {
+    gap: 0.5rem !important;
+  }
+  
+  .mobile-gap-3 {
+    gap: 0.75rem !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .tablet-hidden {
+    display: none !important;
+  }
+  
+  .tablet-text-sm {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+  }
+  
+  .tablet-text-base {
+    font-size: 1rem !important;
+    line-height: 1.5rem !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  .desktop-hidden {
+    display: none !important;
+  }
+}
+
+/* Touch-friendly interactions for mobile */
+@media (hover: none) and (pointer: coarse) {
+  .hover-lift:hover {
+    transform: none;
+  }
+  
+  .hover-lift-premium:hover {
+    transform: none;
+  }
+  
+  .hover-glow:hover {
+    box-shadow: none;
+  }
+  
+  .hover-glow-gold:hover {
+    box-shadow: none;
+  }
+  
+  /* Increase touch targets */
+  button, 
+  [role="button"], 
+  input[type="button"], 
+  input[type="submit"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
