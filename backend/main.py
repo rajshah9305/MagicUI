@@ -1,86 +1,111 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
-import uuid
-from datetime import datetime
+from fastapi.staticfiles import StaticFiles
+import logging
+import os
+from .app.api import router as api_router
+from .app.database import engine
+from .app.models import Base
+from .app.security import get_api_key
+from .app.websocket_manager import websocket_manager
 
-app = FastAPI(title="Magic UI Studio Pro API", version="1.0.0")
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
+# Create database tables
+Base.metadata.create_all(bind=engine)
+
+# Initialize FastAPI app
+app = FastAPI(
+    title="Magic UI Studio Pro API", 
+    version="2.0.0",
+    description="Advanced AI-powered UI generation platform with CrewAI orchestration",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001", 
+        "https://*.vercel.app",
+        "https://*.netlify.app"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
-class DesignRequest(BaseModel):
-    prompt: str
-    pageType: str = "landing"
-    style: str = "minimalist"
-    complexity: str = "medium"
-    requirements: List[str] = []
+# Include API routes
+app.include_router(api_router, prefix="/api", dependencies=[Depends(get_api_key)])
 
-class ChatRequest(BaseModel):
-    message: str
+# WebSocket routes (no auth required for real-time updates)
+app.include_router(api_router, prefix="/ws", tags=["websocket"])
 
-class PromptAnalysisRequest(BaseModel):
-    prompt: str
-
-@app.post("/api/generate-ui")
-async def generate_ui(request: DesignRequest):
-    # Mock UI generation
-    ui_id = str(uuid.uuid4())
+# Health check endpoint (no auth required)
+@app.get("/health")
+async def health_check():
+    """Basic health check endpoint"""
     return {
-        "id": ui_id,
-        "requestId": ui_id,
-        "code": f"// Generated component for: {request.prompt}",
-        "preview": f"<div>Preview for: {request.prompt}</div>",
-        "components": [],
-        "metrics": {
-            "novelty": 0.85,
-            "quality": 0.92,
-            "performance": 0.88,
-            "accessibility": 0.94
+        "status": "healthy", 
+        "version": "2.0.0",
+        "services": {
+            "api": "running",
+            "database": "connected",
+            "websocket": "active"
         }
     }
 
-@app.post("/api/chat")
-async def chat(request: ChatRequest):
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    logger.info("Magic UI Studio Pro API starting up...")
+    logger.info("Services initialized successfully")
+
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    logger.info("Magic UI Studio Pro API shutting down...")
+
+# Error handlers
+@app.exception_handler(500)
+async def internal_error_handler(request, exc):
+    logger.error(f"Internal server error: {str(exc)}")
+    return {"error": "Internal server error", "detail": str(exc)}
+
+@app.exception_handler(404)
+async def not_found_handler(request, exc):
+    return {"error": "Not found", "detail": "The requested resource was not found"}
+
+# Root endpoint
+@app.get("/")
+async def root():
+    """API root endpoint"""
     return {
-        "id": str(uuid.uuid4()),
-        "type": "assistant",
-        "content": f"I understand you want: {request.message}. Let me generate that for you.",
-        "timestamp": datetime.now().isoformat()
+        "message": "Magic UI Studio Pro API",
+        "version": "2.0.0",
+        "docs": "/docs",
+        "health": "/health",
+        "websocket": "/ws"
     }
-
-@app.post("/api/analyze-prompt")
-async def analyze_prompt(request: PromptAnalysisRequest):
-    # Mock prompt analysis
-    return {
-        "id": str(uuid.uuid4()),
-        "prompt": request.prompt,
-        "pageType": "landing",
-        "style": "minimalist",
-        "complexity": "medium",
-        "requirements": ["responsive", "accessible", "modern"]
-    }
-
-@app.get("/api/agents/status")
-async def get_agent_status():
-    return [
-        {"id": "1", "name": "Design Architect", "status": "idle", "progress": 0},
-        {"id": "2", "name": "UI Generator", "status": "idle", "progress": 0},
-        {"id": "3", "name": "Style Expert", "status": "idle", "progress": 0},
-        {"id": "4", "name": "Code Generator", "status": "idle", "progress": 0},
-        {"id": "5", "name": "QA Agent", "status": "idle", "progress": 0},
-    ]
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    # Development server configuration
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0", 
+        port=8000,
+        reload=True,
+        log_level="info",
+        access_log=True
+    )

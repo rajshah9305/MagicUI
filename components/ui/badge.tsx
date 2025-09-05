@@ -1,35 +1,73 @@
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
+'use client'
+
+import { motion } from "framer-motion"
+import { HTMLAttributes, forwardRef } from "react"
 import { cn } from "@/lib/utils"
 
-const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-  {
-    variants: {
-      variant: {
-        default:
-          "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive:
-          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-    },
+export interface PremiumBadgeProps extends HTMLAttributes<HTMLDivElement> {
+  variant?: 'default' | 'primary' | 'secondary' | 'accent' | 'success' | 'warning' | 'error' | 'outline'
+  size?: 'sm' | 'md' | 'lg'
+  glow?: boolean
+  animated?: boolean
+  icon?: React.ReactNode
+}
+
+const PremiumBadge = forwardRef<HTMLDivElement, PremiumBadgeProps>(
+  ({ 
+    className,
+    variant = 'default',
+    size = 'md',
+    glow = false,
+    animated = false,
+    icon,
+    children,
+    ...props 
+  }, ref) => {
+    const baseClasses = "inline-flex items-center font-medium rounded-full transition-all duration-300"
+    
+    const variants = {
+      default: "bg-gray-100 text-gray-800",
+      primary: "bg-primary-100 text-primary-800 border border-primary-200",
+      secondary: "bg-secondary-100 text-secondary-800 border border-secondary-200",
+      accent: "bg-accent-100 text-accent-800 border border-accent-200",
+      success: "bg-success-100 text-success-800 border border-success-200",
+      warning: "bg-warning-100 text-warning-800 border border-warning-200",
+      error: "bg-error-100 text-error-800 border border-error-200",
+      outline: "bg-transparent text-gray-700 border-2 border-gray-300"
+    }
+    
+    const sizes = {
+      sm: "px-2 py-1 text-xs",
+      md: "px-3 py-1.5 text-sm",
+      lg: "px-4 py-2 text-base"
+    }
+    
+    const glowClasses = glow ? "hover:shadow-glow" : ""
+    const animatedClasses = animated ? "animate-premium-float" : ""
+    
+    return (
+      <motion.div
+        ref={ref}
+        className={cn(
+          baseClasses,
+          variants[variant],
+          sizes[size],
+          glowClasses,
+          animatedClasses,
+          className
+        )}
+        whileHover={{ scale: 1.05 }}
+        {...props}
+      >
+        {icon && (
+          <span className="mr-1 flex-shrink-0">{icon}</span>
+        )}
+        {children}
+      </motion.div>
+    )
   }
 )
 
-export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
+PremiumBadge.displayName = "PremiumBadge"
 
-function Badge({ className, variant, ...props }: BadgeProps) {
-  return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
-  )
-}
-
-export { Badge, badgeVariants }
+export { PremiumBadge }

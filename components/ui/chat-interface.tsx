@@ -105,7 +105,7 @@ export function PremiumChatInterface({
       </motion.div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4" aria-live="polite">
         <AnimatePresence>
           {messages.map((message, index) => (
             <motion.div
@@ -237,6 +237,7 @@ export function PremiumChatInterface({
               size="sm"
               disabled={isLoading}
               className="text-sm"
+              aria-label="Chat message input"
             />
           </div>
           <PremiumButton
@@ -245,6 +246,7 @@ export function PremiumChatInterface({
             size="sm"
             glow
             className="px-3 sm:px-4 lg:px-6 flex-shrink-0"
+            aria-label="Send message"
           >
             <Send className="w-4 h-4 sm:w-5 sm:h-5" />
           </PremiumButton>

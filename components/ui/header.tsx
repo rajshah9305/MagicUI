@@ -22,10 +22,13 @@ export function PremiumHeaderV2({
     <motion.header 
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden bg-gradient-hero border-b border-primary-200/20"
+      transition={{ duration: 0.5 }}
+      className="relative bg-gradient-hero text-white shadow-premium overflow-hidden"
+      role="banner"
     >
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 premium-grid opacity-10" />
+      <div className="absolute inset-0 premium-mesh opacity-5" />
+      <div className="absolute inset-0 pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl animate-premium-float" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-secondary-500/10 rounded-full blur-3xl animate-premium-float" style={{ animationDelay: '1s' }} />
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-accent-500/5 rounded-full blur-3xl animate-premium-float" style={{ animationDelay: '2s' }} />
@@ -39,12 +42,14 @@ export function PremiumHeaderV2({
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400, damping: 10 }}
           >
-            <div className="relative">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-primary rounded-xl sm:rounded-2xl flex items-center justify-center shadow-elevated">
-                <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-white" />
+            <a href="/" aria-label="Magic UI Studio Homepage">
+              <div className="relative">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-primary rounded-xl sm:rounded-2xl flex items-center justify-center shadow-elevated">
+                  <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-white" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 bg-secondary-500 rounded-full animate-pulse-premium" />
               </div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 bg-secondary-500 rounded-full animate-pulse-premium" />
-            </div>
+            </a>
             <div className="hidden sm:block">
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Magic UI Studio</h1>
               <p className="text-xs sm:text-sm text-primary-100">Elite AI Design Platform</p>
@@ -52,7 +57,7 @@ export function PremiumHeaderV2({
           </motion.div>
 
           {/* Navigation */}
-          <nav className="hidden lg:flex items-center space-x-2">
+          <nav className="hidden lg:flex items-center space-x-2" aria-label="Main navigation">
             {[
               { icon: Brain, label: "AI Engine", active: true, glow: true },
               { icon: Target, label: "Templates", active: false },
@@ -104,6 +109,7 @@ export function PremiumHeaderV2({
               size="sm"
               onClick={onToggleFullscreen}
               className="border-primary-300 text-primary-100 hover:bg-primary-500/10"
+              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </PremiumButton>
@@ -135,6 +141,8 @@ export function PremiumHeaderV2({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
           className="mt-4 sm:mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0"
+          role="status"
+          aria-live="polite"
         >
           <div className="flex flex-wrap items-center gap-3 sm:gap-4 lg:gap-6">
             <motion.div 
