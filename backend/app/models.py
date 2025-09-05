@@ -36,7 +36,7 @@ class ChatMessage(Base):
     content = Column(Text)
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
     session_id = Column(String, index=True)
-    metadata = Column(JSON, nullable=True)
+    extra_data = Column(JSON, nullable=True)
 
 class Project(Base):
     __tablename__ = "projects"
@@ -92,7 +92,7 @@ class ChatMessageSchema(ChatMessageBase):
     timestamp: datetime.datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class DesignRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=2000, description="User's design prompt")
@@ -158,7 +158,7 @@ class ChatResponse(BaseModel):
     content: str
     timestamp: datetime.datetime
     suggestions: Optional[List[str]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    extra_data: Optional[Dict[str, Any]] = None
     
     class Config:
         use_enum_values = True

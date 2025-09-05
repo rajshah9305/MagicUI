@@ -1,8 +1,8 @@
 'use client'
 
 import { motion } from "framer-motion"
-import { Card as PremiumCard } from "@/components/ui/card"
-import { Progress as PremiumProgress } from "@/components/ui/progress"
+import { PremiumCard } from "@/components/ui/premium-card"
+import { PremiumProgress } from "@/components/ui/premium-progress"
 import { Agent, AgentStatus } from "@/lib/types"
 import { Brain, Star } from "lucide-react"
 import { AgentCard } from "./agent-card"

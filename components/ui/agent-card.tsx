@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from "framer-motion"
-import { PremiumCard } from "@/components/ui/premium-card"
+import { PremiumCard, CardHeader, CardContent } from "@/components/ui/premium-card"
 import { PremiumProgress } from "@/components/ui/premium-progress"
 import { PremiumBadge } from "@/components/ui/premium-badge"
 import { Agent, AgentStatus } from "@/lib/types"

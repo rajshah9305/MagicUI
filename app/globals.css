@@ -4,6 +4,163 @@
 
 @layer base {
   :root {
+    /* Primary Colors - Enhanced for better visibility */
+    --primary-50: 240 249 255;
+    --primary-100: 219 234 254;
+    --primary-200: 191 219 254;
+    --primary-300: 147 197 253;
+    --primary-400: 96 165 250;
+    --primary-500: 59 130 246;
+    --primary-600: 37 99 235;
+    --primary-700: 29 78 216;
+    --primary-800: 30 64 175;
+    --primary-900: 30 58 138;
+    
+    /* Secondary Colors */
+    --secondary-50: 248 250 252;
+    --secondary-100: 241 245 249;
+    --secondary-200: 226 232 240;
+    --secondary-300: 203 213 225;
+    --secondary-400: 148 163 184;
+    --secondary-500: 100 116 139;
+    --secondary-600: 71 85 105;
+    --secondary-700: 51 65 85;
+    --secondary-800: 30 41 59;
+    --secondary-900: 15 23 42;
+    
+    /* Accent Colors */
+    --accent-50: 250 245 255;
+    --accent-100: 243 232 255;
+    --accent-200: 233 213 255;
+    --accent-300: 196 181 253;
+    --accent-400: 167 139 250;
+    --accent-500: 139 92 246;
+    --accent-600: 124 58 237;
+    --accent-700: 109 40 217;
+    --accent-800: 91 33 182;
+    --accent-900: 76 29 149;
+    
+    /* Success Colors */
+    --success-50: 240 253 244;
+    --success-100: 220 252 231;
+    --success-200: 187 247 208;
+    --success-300: 134 239 172;
+    --success-400: 74 222 128;
+    --success-500: 34 197 94;
+    --success-600: 22 163 74;
+    --success-700: 21 128 61;
+    --success-800: 22 101 52;
+    --success-900: 20 83 45;
+    
+    /* Warning Colors */
+    --warning-50: 255 251 235;
+    --warning-100: 254 243 199;
+    --warning-200: 253 230 138;
+    --warning-300: 252 211 77;
+    --warning-400: 251 191 36;
+    --warning-500: 245 158 11;
+    --warning-600: 217 119 6;
+    --warning-700: 180 83 9;
+    --warning-800: 146 64 14;
+    --warning-900: 120 53 15;
+    
+    /* Error Colors */
+    --error-50: 254 242 242;
+    --error-100: 254 226 226;
+    --error-200: 254 202 202;
+    --error-300: 252 165 165;
+    --error-400: 248 113 113;
+    --error-500: 239 68 68;
+    --error-600: 220 38 38;
+    --error-700: 185 28 28;
+    --error-800: 153 27 27;
+    --error-900: 127 29 29;
+    
+    /* Base Colors */
+    --background: 255 255 255;
+    --foreground: 15 23 42;
+    --border: 226 232 240;
+    --input: 241 245 249;
+    --ring: 59 130 246;
+    --muted: 248 250 252;
+    --muted-foreground: 100 116 139;
+    
+    /* Surface Colors */
+    --surface-elevated: rgba(255, 255, 255, 0.8);
+    --surface-subtle: rgba(248, 250, 252, 0.5);
+    --surface-overlay: rgba(15, 23, 42, 0.8);
+    --surface-accent: rgba(59, 130, 246, 0.1);
+    
+    /* Shadows */
+    --shadow-soft: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    --shadow-medium: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-strong: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-glow: 0 0 0 1px rgba(59, 130, 246, 0.3), 0 0 20px rgba(59, 130, 246, 0.2);
+    --shadow-gold: 0 0 0 1px rgba(245, 158, 11, 0.3), 0 0 20px rgba(245, 158, 11, 0.2);
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, rgb(59 130 246) 0%, rgb(37 99 235) 100%);
+    --gradient-secondary: linear-gradient(135deg, rgb(100 116 139) 0%, rgb(51 65 85) 100%);
+    --gradient-surface: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
+    --gradient-hero: linear-gradient(135deg, rgb(59 130 246) 0%, rgb(139 92 246) 50%, rgb(236 72 153) 100%);
+    --gradient-card: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.9) 100%);
+  }
+  
+  .dark {
+    /* Dark mode color overrides for better contrast */
+    --background: 15 23 42;
+    --foreground: 248 250 252;
+    --border: 51 65 85;
+    --input: 30 41 59;
+    --muted: 30 41 59;
+    --muted-foreground: 148 163 184;
+    
+    --surface-elevated: rgba(30, 41, 59, 0.8);
+    --surface-subtle: rgba(51, 65, 85, 0.5);
+    --surface-overlay: rgba(248, 250, 252, 0.8);
+    --surface-accent: rgba(59, 130, 246, 0.2);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Enhanced visibility utilities */
+@layer utilities {
+  .text-high-contrast {
+    @apply text-gray-900 dark:text-gray-100;
+  }
+  
+  .text-medium-contrast {
+    @apply text-gray-700 dark:text-gray-300;
+  }
+  
+  .text-low-contrast {
+    @apply text-gray-500 dark:text-gray-400;
+  }
+  
+  .bg-high-contrast {
+    @apply bg-white dark:bg-gray-900;
+  }
+  
+  .bg-medium-contrast {
+    @apply bg-gray-50 dark:bg-gray-800;
+  }
+  
+  .border-visible {
+    @apply border-gray-300 dark:border-gray-600;
+  }
+}
+
+@layer base {
+  :root {
     /* Premium Design System - Magic UI Studio Pro */
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;

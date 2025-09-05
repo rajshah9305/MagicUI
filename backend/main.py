@@ -3,11 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import logging
 import os
-from .app.api import router as api_router
-from .app.database import engine
-from .app.models import Base
-from .app.security import get_api_key
-from .app.websocket_manager import websocket_manager
+from app.api import router as api_router
+from app.database import engine
+from app.models import Base
+from app.security import get_api_key
+from app.websocket_manager import websocket_manager
 
 # Configure logging
 logging.basicConfig(

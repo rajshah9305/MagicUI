@@ -9,7 +9,7 @@ import asyncio
 import json
 from datetime import datetime
 import logging
-from ..app.models import DesignIntentResponse
+from app.models import DesignIntentResponse
 
 logger = logging.getLogger(__name__)
 
@@ -200,4 +200,243 @@ class AdvancedNLPEngine:
                 confidence=confidence
             )
             
-        except Exception as e:\n            logger.error(f\"Error in prompt analysis: {str(e)}\")\n            # Return default analysis on error\n            return self._get_default_analysis()\n    \n    def _tokenize_prompt(self, prompt: str) -> List[str]:\n        \"\"\"Tokenize and clean the input prompt\"\"\"\n        # Convert to lowercase and remove special characters\n        cleaned = re.sub(r'[^\\w\\s]', ' ', prompt.lower())\n        \n        # Split into tokens and filter short words\n        tokens = [token for token in cleaned.split() if len(token) > 2]\n        \n        return tokens\n    \n    def _extract_entities(self, tokens: List[str], original_prompt: str) -> Dict[str, List[str]]:\n        \"\"\"Extract entities from tokens\"\"\"\n        entities = {\n            'page_types': [],\n            'styles': [],\n            'components': [],\n            'domains': [],\n            'audiences': [],\n            'functional': [],\n            'technical': []\n        }\n        \n        text = ' '.join(tokens)\n        original_lower = original_prompt.lower()\n        \n        # Extract page types\n        for page_type, pattern_data in self.design_patterns.items():\n            for keyword in pattern_data['keywords']:\n                if keyword in original_lower:\n                    entities['page_types'].append(page_type)\n                    break\n        \n        # Extract styles\n        for style, style_data in self.style_guides.items():\n            for keyword in style_data['keywords']:\n                if keyword in original_lower:\n                    entities['styles'].append(style)\n                    break\n        \n        # Extract business domains\n        for domain, domain_data in self.domain_knowledge.items():\n            for keyword in domain_data['keywords']:\n                if keyword in original_lower:\n                    entities['domains'].append(domain)\n                    break\n        \n        # Extract functional requirements\n        functional_patterns = {\n            'responsive': ['responsive', 'mobile', 'tablet', 'device'],\n            'accessible': ['accessible', 'accessibility', 'a11y', 'wcag'],\n            'performance': ['fast', 'performance', 'speed', 'optimize'],\n            'secure': ['secure', 'security', 'safe', 'ssl'],\n            'seo': ['seo', 'search', 'google', 'optimization'],\n            'animations': ['animation', 'motion', 'transition', 'interactive']\n        }\n        \n        for requirement, keywords in functional_patterns.items():\n            if any(keyword in original_lower for keyword in keywords):\n                entities['functional'].append(requirement)\n        \n        # Extract technical requirements\n        technical_patterns = {\n            'react_nextjs': ['react', 'nextjs', 'next.js', 'jsx'],\n            'typescript': ['typescript', 'ts', 'type'],\n            'tailwind': ['tailwind', 'css', 'styling'],\n            'api_integration': ['api', 'backend', 'server', 'database'],\n            'authentication': ['auth', 'login', 'user', 'session']\n        }\n        \n        for requirement, keywords in technical_patterns.items():\n            if any(keyword in original_lower for keyword in keywords):\n                entities['technical'].append(requirement)\n        \n        return entities\n    \n    def _classify_intent(self, entities: Dict[str, List[str]], prompt: str) -> Dict[str, Any]:\n        \"\"\"Classify the design intent based on extracted entities\"\"\"\n        \n        # Determine page type\n        page_type = entities['page_types'][0] if entities['page_types'] else 'landing'\n        \n        # Get pattern data\n        pattern = self.design_patterns.get(page_type, self.design_patterns['landing'])\n        \n        # Determine styles\n        styles = entities['styles'] if entities['styles'] else ['modern']\n        \n        # Determine domain\n        domain = entities['domains'][0] if entities['domains'] else 'general'\n        \n        # Infer audience\n        audience = self._infer_audience(domain, prompt)\n        \n        # Infer personality\n        personality = self._infer_personality(styles, domain)\n        \n        # Get functional requirements\n        functional = entities['functional'] if entities['functional'] else ['responsive']\n        \n        # Get technical requirements\n        technical = entities['technical'] if entities['technical'] else ['react_nextjs', 'tailwind']\n        \n        return {\n            'page_type': page_type,\n            'styles': styles,\n            'components': pattern['components'],\n            'layout': pattern['layouts'][0],\n            'domain': domain,\n            'audience': audience,\n            'personality': personality,\n            'functional': functional,\n            'technical': technical\n        }\n    \n    def _infer_audience(self, domain: str, prompt: str) -> str:\n        \"\"\"Infer target audience from domain and prompt\"\"\"\n        if domain in self.domain_knowledge:\n            return self.domain_knowledge[domain]['audience']\n        \n        # Pattern-based audience detection\n        audience_patterns = {\n            'professionals': ['business', 'corporate', 'professional', 'enterprise'],\n            'developers': ['developer', 'tech', 'programmer', 'code'],\n            'students': ['student', 'learn', 'education', 'course'],\n            'consumers': ['customer', 'user', 'buyer', 'consumer'],\n            'creatives': ['artist', 'designer', 'creative', 'portfolio']\n        }\n        \n        prompt_lower = prompt.lower()\n        for audience, keywords in audience_patterns.items():\n            if any(keyword in prompt_lower for keyword in keywords):\n                return audience\n        \n        return 'general'\n    \n    def _infer_personality(self, styles: List[str], domain: str) -> List[str]:\n        \"\"\"Infer brand personality from styles and domain\"\"\"\n        personality = []\n        \n        # Style-based personality\n        style_personalities = {\n            'minimalist': ['sophisticated', 'clean', 'professional'],\n            'brutalist': ['bold', 'experimental', 'edgy'],\n            'glassmorphism': ['modern', 'innovative', 'elegant'],\n            'dark': ['sophisticated', 'dramatic', 'premium'],\n            'colorful': ['energetic', 'playful', 'vibrant']\n        }\n        \n        for style in styles:\n            if style in style_personalities:\n                personality.extend(style_personalities[style])\n        \n        # Domain-based personality\n        if domain in self.domain_knowledge:\n            personality.extend(self.domain_knowledge[domain]['characteristics'])\n        \n        # Remove duplicates and return\n        return list(set(personality)) if personality else ['friendly', 'approachable']\n    \n    def _calculate_complexity(self, intent: Dict[str, Any], prompt: str) -> float:\n        \"\"\"Calculate design complexity score\"\"\"\n        base_complexity = 0.5\n        \n        # Page type complexity\n        page_type = intent['page_type']\n        if page_type in self.design_patterns:\n            base_complexity = self.design_patterns[page_type]['complexity']\n        \n        # Style complexity\n        for style in intent['styles']:\n            if style in self.style_guides:\n                base_complexity += self.style_guides[style]['complexity'] * 0.1\n        \n        # Component count complexity\n        component_count = len(intent['components'])\n        base_complexity += (component_count - 3) * 0.05\n        \n        # Functional requirements complexity\n        functional_count = len(intent['functional'])\n        base_complexity += functional_count * 0.08\n        \n        # Technical requirements complexity\n        technical_count = len(intent['technical'])\n        base_complexity += technical_count * 0.06\n        \n        # Prompt length complexity\n        prompt_length = len(prompt.split())\n        if prompt_length > 50:\n            base_complexity += 0.1\n        elif prompt_length > 100:\n            base_complexity += 0.2\n        \n        return min(base_complexity, 1.0)\n    \n    def _calculate_confidence(self, entities: Dict[str, List[str]], prompt: str) -> float:\n        \"\"\"Calculate confidence score for the analysis\"\"\"\n        confidence = 0.5\n        \n        # Entity detection confidence\n        if entities['page_types']:\n            confidence += 0.3\n        if entities['styles']:\n            confidence += 0.2\n        if entities['domains']:\n            confidence += 0.1\n        \n        # Prompt quality confidence\n        prompt_length = len(prompt.split())\n        if prompt_length > 10:\n            confidence += 0.1\n        if prompt_length > 25:\n            confidence += 0.1\n        \n        # Specificity confidence\n        specific_terms = ['create', 'build', 'design', 'make', 'generate']\n        if any(term in prompt.lower() for term in specific_terms):\n            confidence += 0.1\n        \n        return min(confidence, 1.0)\n    \n    def _get_default_analysis(self) -> DesignIntentResponse:\n        \"\"\"Return default analysis when processing fails\"\"\"\n        return DesignIntentResponse(\n            page_type=\"landing\",\n            style_preferences=[\"modern\"],\n            components=[\"header\", \"hero\", \"features\", \"footer\"],\n            layout=\"single_column\",\n            complexity=0.5,\n            business_domain=\"general\",\n            target_audience=\"general\",\n            brand_personality=[\"friendly\", \"approachable\"],\n            functional_requirements=[\"responsive\"],\n            technical_requirements=[\"react_nextjs\", \"tailwind\"],\n            confidence=0.3\n        )
+        except Exception as e:
+            logger.error(f"Error in prompt analysis: {str(e)}")
+            # Return default analysis on error
+            return self._get_default_analysis()
+    
+    def _tokenize_prompt(self, prompt: str) -> List[str]:
+        """Tokenize and clean the input prompt"""
+        # Convert to lowercase and remove special characters
+        cleaned = re.sub(r'[^\w\s]', ' ', prompt.lower())
+        
+        # Split into tokens and filter short words
+        tokens = [token for token in cleaned.split() if len(token) > 2]
+        
+        return tokens
+    
+    def _extract_entities(self, tokens: List[str], original_prompt: str) -> Dict[str, List[str]]:
+        """Extract entities from tokens"""
+        entities = {
+            'page_types': [],
+            'styles': [],
+            'components': [],
+            'domains': [],
+            'audiences': [],
+            'functional': [],
+            'technical': []
+        }
+        
+        text = ' '.join(tokens)
+        original_lower = original_prompt.lower()
+        
+        # Extract page types
+        for page_type, pattern_data in self.design_patterns.items():
+            for keyword in pattern_data['keywords']:
+                if keyword in original_lower:
+                    entities['page_types'].append(page_type)
+                    break
+        
+        # Extract styles
+        for style, style_data in self.style_guides.items():
+            for keyword in style_data['keywords']:
+                if keyword in original_lower:
+                    entities['styles'].append(style)
+                    break
+        
+        # Extract business domains
+        for domain, domain_data in self.domain_knowledge.items():
+            for keyword in domain_data['keywords']:
+                if keyword in original_lower:
+                    entities['domains'].append(domain)
+                    break
+        
+        # Extract functional requirements
+        functional_patterns = {
+            'responsive': ['responsive', 'mobile', 'tablet', 'device'],
+            'accessible': ['accessible', 'accessibility', 'a11y', 'wcag'],
+            'performance': ['fast', 'performance', 'speed', 'optimize'],
+            'secure': ['secure', 'security', 'safe', 'ssl'],
+            'seo': ['seo', 'search', 'google', 'optimization'],
+            'animations': ['animation', 'motion', 'transition', 'interactive']
+        }
+        
+        for requirement, keywords in functional_patterns.items():
+            if any(keyword in original_lower for keyword in keywords):
+                entities['functional'].append(requirement)
+        
+        # Extract technical requirements
+        technical_patterns = {
+            'react_nextjs': ['react', 'nextjs', 'next.js', 'jsx'],
+            'typescript': ['typescript', 'ts', 'type'],
+            'tailwind': ['tailwind', 'css', 'styling'],
+            'api_integration': ['api', 'backend', 'server', 'database'],
+            'authentication': ['auth', 'login', 'user', 'session']
+        }
+        
+        for requirement, keywords in technical_patterns.items():
+            if any(keyword in original_lower for keyword in keywords):
+                entities['technical'].append(requirement)
+        
+        return entities
+    
+    def _classify_intent(self, entities: Dict[str, List[str]], prompt: str) -> Dict[str, Any]:
+        """Classify the design intent based on extracted entities"""
+        
+        # Determine page type
+        page_type = entities['page_types'][0] if entities['page_types'] else 'landing'
+        
+        # Get pattern data
+        pattern = self.design_patterns.get(page_type, self.design_patterns['landing'])
+        
+        # Determine styles
+        styles = entities['styles'] if entities['styles'] else ['modern']
+        
+        # Determine domain
+        domain = entities['domains'][0] if entities['domains'] else 'general'
+        
+        # Infer audience
+        audience = self._infer_audience(domain, prompt)
+        
+        # Infer personality
+        personality = self._infer_personality(styles, domain)
+        
+        # Get functional requirements
+        functional = entities['functional'] if entities['functional'] else ['responsive']
+        
+        # Get technical requirements
+        technical = entities['technical'] if entities['technical'] else ['react_nextjs', 'tailwind']
+        
+        return {
+            'page_type': page_type,
+            'styles': styles,
+            'components': pattern['components'],
+            'layout': pattern['layouts'][0],
+            'domain': domain,
+            'audience': audience,
+            'personality': personality,
+            'functional': functional,
+            'technical': technical
+        }
+    
+    def _infer_audience(self, domain: str, prompt: str) -> str:
+        """Infer target audience from domain and prompt"""
+        if domain in self.domain_knowledge:
+            return self.domain_knowledge[domain]['audience']
+        
+        # Pattern-based audience detection
+        audience_patterns = {
+            'professionals': ['business', 'corporate', 'professional', 'enterprise'],
+            'developers': ['developer', 'tech', 'programmer', 'code'],
+            'students': ['student', 'learn', 'education', 'course'],
+            'consumers': ['customer', 'user', 'buyer', 'consumer'],
+            'creatives': ['artist', 'designer', 'creative', 'portfolio']
+        }
+        
+        prompt_lower = prompt.lower()
+        for audience, keywords in audience_patterns.items():
+            if any(keyword in prompt_lower for keyword in keywords):
+                return audience
+        
+        return 'general'
+    
+    def _infer_personality(self, styles: List[str], domain: str) -> List[str]:
+        """Infer brand personality from styles and domain"""
+        personality = []
+        
+        # Style-based personality
+        style_personalities = {
+            'minimalist': ['sophisticated', 'clean', 'professional'],
+            'brutalist': ['bold', 'experimental', 'edgy'],
+            'glassmorphism': ['modern', 'innovative', 'elegant'],
+            'dark': ['sophisticated', 'dramatic', 'premium'],
+            'colorful': ['energetic', 'playful', 'vibrant']
+        }
+        
+        for style in styles:
+            if style in style_personalities:
+                personality.extend(style_personalities[style])
+        
+        # Domain-based personality
+        if domain in self.domain_knowledge:
+            personality.extend(self.domain_knowledge[domain]['characteristics'])
+        
+        # Remove duplicates and return
+        return list(set(personality)) if personality else ['friendly', 'approachable']
+    
+    def _calculate_complexity(self, intent: Dict[str, Any], prompt: str) -> float:
+        """Calculate design complexity score"""
+        base_complexity = 0.5
+        
+        # Page type complexity
+        page_type = intent['page_type']
+        if page_type in self.design_patterns:
+            base_complexity = self.design_patterns[page_type]['complexity']
+        
+        # Style complexity
+        for style in intent['styles']:
+            if style in self.style_guides:
+                base_complexity += self.style_guides[style]['complexity'] * 0.1
+        
+        # Component count complexity
+        component_count = len(intent['components'])
+        base_complexity += (component_count - 3) * 0.05
+        
+        # Functional requirements complexity
+        functional_count = len(intent['functional'])
+        base_complexity += functional_count * 0.08
+        
+        # Technical requirements complexity
+        technical_count = len(intent['technical'])
+        base_complexity += technical_count * 0.06
+        
+        # Prompt length complexity
+        prompt_length = len(prompt.split())
+        if prompt_length > 50:
+            base_complexity += 0.1
+        elif prompt_length > 100:
+            base_complexity += 0.2
+        
+        return min(base_complexity, 1.0)
+    
+    def _calculate_confidence(self, entities: Dict[str, List[str]], prompt: str) -> float:
+        """Calculate confidence score for the analysis"""
+        confidence = 0.5
+        
+        # Entity detection confidence
+        if entities['page_types']:
+            confidence += 0.3
+        if entities['styles']:
+            confidence += 0.2
+        if entities['domains']:
+            confidence += 0.1
+        
+        # Prompt quality confidence
+        prompt_length = len(prompt.split())
+        if prompt_length > 10:
+            confidence += 0.1
+        if prompt_length > 25:
+            confidence += 0.1
+        
+        # Specificity confidence
+        specific_terms = ['create', 'build', 'design', 'make', 'generate']
+        if any(term in prompt.lower() for term in specific_terms):
+            confidence += 0.1
+        
+        return min(confidence, 1.0)
+    
+    def _get_default_analysis(self) -> DesignIntentResponse:
+        """Return default analysis when processing fails"""
+        return DesignIntentResponse(
+            page_type="landing",
+            style_preferences=["modern"],
+            components=["header", "hero", "features", "footer"],
+            layout="single_column",
+            complexity=0.5,
+            business_domain="general",
+            target_audience="general",
+            brand_personality=["friendly", "approachable"],
+            functional_requirements=["responsive"],
+            technical_requirements=["react_nextjs", "tailwind"],
+            confidence=0.3
+        )

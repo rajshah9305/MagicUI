@@ -12,7 +12,7 @@ interface PremiumHeaderV2Props {
   hasGeneratedUI?: boolean
 }
 
-export function PremiumHeaderV2({ 
+export function Header({ 
   onDownload, 
   onToggleFullscreen, 
   isFullscreen = false,

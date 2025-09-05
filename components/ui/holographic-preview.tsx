@@ -27,7 +27,7 @@ interface PremiumHolographicPreviewProps {
 
 type ViewportType = 'desktop' | 'tablet' | 'mobile'
 
-export function PremiumHolographicPreview({ 
+export function HolographicPreview({ 
   previewHtml,
   code,
   onDownload,

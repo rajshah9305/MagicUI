@@ -33,21 +33,25 @@ async def shutdown_event():
 
 @router.post("/generate-ui", response_model=UIGenerationResponse)
 async def generate_ui(request: DesignRequest, db: Session = Depends(get_db)):
-    """Generate UI using advanced CrewAI orchestration"""
+    """Generate UI using advanced CrewAI orchestration with Cerebras AI"""
     try:
-        # Use advanced service if available, fallback to mock
-        if hasattr(services, 'generate_ui_advanced'):
-            result = await services.generate_ui_advanced(request)
-        else:
-            result_dict = services.generate_ui_mock(request)
-            result = UIGenerationResponse(**result_dict)
+        # Always use the advanced service with Cerebras AI
+        result = await services.generate_ui_advanced(request)
         
         # TODO: Save to database
         return result
         
     except Exception as e:
         logger.error(f"UI generation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"UI generation failed: {str(e)}")
+        
+        # Fallback to mock service in case of error
+        try:
+            result_dict = services.generate_ui_mock(request)
+            result = UIGenerationResponse(**result_dict)
+            return result
+        except Exception as fallback_error:
+            logger.error(f"Fallback also failed: {str(fallback_error)}")
+            raise HTTPException(status_code=500, detail=f"UI generation failed: {str(e)}")
 
 @router.post("/generate-ui/mock")
 async def generate_ui_mock_endpoint(request: DesignRequest):

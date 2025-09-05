@@ -15,7 +15,7 @@ from .models import (
 )
 from .crewai_orchestrator import MagicUICrewOrchestrator
 from .websocket_manager import websocket_manager
-from ..lib.nlp_engine import AdvancedNLPEngine
+from lib.nlp_engine import AdvancedNLPEngine
 import os
 from dotenv import load_dotenv
 
@@ -25,33 +25,36 @@ logger = logging.getLogger(__name__)
 # Initialize services
 nlp_engine = AdvancedNLPEngine()
 crewai_orchestrator = MagicUICrewOrchestrator(
-    openai_api_key=os.getenv("OPENAI_API_KEY", "demo-key"),
+    cerebras_api_key=os.getenv("CEREBRAS_API_KEY", "demo-key"),
     websocket_manager=websocket_manager
 )
 
 async def generate_ui_advanced(request: DesignRequest) -> UIGenerationResponse:
-    """Advanced UI generation using CrewAI and NLP analysis"""
+    """Orchestrate UI generation using the full CrewAI agent team"""
     try:
-        # Step 1: Analyze the prompt using NLP engine
-        design_intent = await nlp_engine.analyze_prompt(request.prompt)
-        
-        # Step 2: Generate project ID
         project_id = request.project_id or str(uuid.uuid4())
         
-        # Step 3: Broadcast generation start
+        # Step 1: Analyze the prompt to get design intent
         await websocket_manager.send_generation_progress(
-            progress=0.0, 
-            stage="Starting AI analysis", 
+            progress=0.1,
+            stage="Analyzing design requirements",
             project_id=project_id
         )
-        
-        # Step 4: Orchestrate UI generation using CrewAI
+        design_intent_request = PromptAnalysisRequest(prompt=request.prompt)
+        design_intent = await analyze_prompt_advanced(design_intent_request)
+
+        # Step 2: Delegate the core generation task to the CrewAI orchestrator
+        await websocket_manager.send_generation_progress(
+            progress=0.2,
+            stage="Assembling AI agent team",
+            project_id=project_id
+        )
         generation_result = await crewai_orchestrator.orchestrate_ui_generation(
             design_intent=design_intent,
             project_id=project_id
         )
-        
-        # Step 5: Broadcast completion
+
+        # Step 3: Broadcast completion and return the result
         await websocket_manager.send_generation_complete(
             result=generation_result,
             project_id=project_id
@@ -69,11 +72,12 @@ async def generate_ui_advanced(request: DesignRequest) -> UIGenerationResponse:
         )
         
     except Exception as e:
-        logger.error(f"Error in UI generation: {str(e)}")
+        logger.error(f"Error in UI generation orchestration: {str(e)}")
+        project_id_str = request.project_id or "unknown"
         await websocket_manager.send_error(
             error_message=f"UI generation failed: {str(e)}",
             error_type="generation_error",
-            project_id=project_id
+            project_id=project_id_str
         )
         raise
 
@@ -128,7 +132,7 @@ async def chat_advanced(request: ChatRequest) -> ChatResponse:
             content=response_content,
             timestamp=datetime.utcnow(),
             suggestions=suggestions,
-            metadata={
+            extra_data={
                 "analyzed": len(request.message) > 20,
                 "confidence": design_intent.confidence if len(request.message) > 20 else 0.0
             }
@@ -150,7 +154,7 @@ async def chat_advanced(request: ChatRequest) -> ChatResponse:
             type=MessageType.ASSISTANT,
             content="I apologize, but I encountered an error. Please try again.",
             timestamp=datetime.utcnow(),
-            metadata={"error": str(e)}
+            extra_data={"error": str(e)}
         )
 
 def chat_mock(request: ChatRequest) -> Dict[str, Any]:
